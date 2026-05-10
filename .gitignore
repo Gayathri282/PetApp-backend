@@ -1,0 +1,16 @@
+# Dependencies
+node_modules
+
+# Env files
+.env
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+npm-debug.log*
+
+# IDE / OS
+.vscode
+.DS_Store
