@@ -31,13 +31,18 @@ router.post('/', auth, async (req, res) => {
       await Message.create({
         sender: req.user._id,
         receiver: adminUser._id,
-        content: `Interest Registered: I'm interested in "${product.name}". ${message}`,
+        content: `👋 Hi! I'm interested in "${product.name}".`,
+        adminOnlyContent: `🛍️ **NEW LEAD DETAILS** (Admin Only)\n\n**Product:** ${product.name}\n**Price:** ₹${product.price.toLocaleString()}\n**Vendor:** ${product.vendor?.name}\n**Vendor Phone:** ${product.vendor?.contactNumber || 'N/A'}\n\n[View Product](${process.env.CLIENT_URL}/product/${product._id})`,
         enquiry: enquiry._id,
         product: product._id
       });
     }
 
-    res.status(201).json({ enquiry, message: 'Enquiry sent and chat started with support!' });
+    res.status(201).json({ 
+      enquiry, 
+      adminId: adminUser?._id,
+      message: 'Enquiry sent and chat started with support!' 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

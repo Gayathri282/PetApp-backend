@@ -46,19 +46,40 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
         ],
       };
     } else {
-      filter = {
-        $or: [
-          { sender: req.user._id, receiver: otherUserId },
-          { sender: otherUserId, receiver: req.user._id },
-        ],
-      };
+      // Check if the otherUserId is an admin
+      const targetUser = await User.findById(otherUserId).select('role');
+      if (targetUser?.role === 'admin') {
+        const admins = await User.find({ role: 'admin' }).distinct('_id');
+        filter = {
+          $or: [
+            { sender: req.user._id, receiver: { $in: admins } },
+            { sender: { $in: admins }, receiver: req.user._id },
+          ],
+        };
+      } else {
+        filter = {
+          $or: [
+            { sender: req.user._id, receiver: otherUserId },
+            { sender: otherUserId, receiver: req.user._id },
+          ],
+        };
+      }
     }
 
-    const messages = await Message.find(filter)
+    let messages = await Message.find(filter)
       .sort({ createdAt: 1 })
       .populate('sender', 'name avatar')
       .populate('product', 'name price')
       .lean();
+
+    // Only show adminOnlyContent to admins
+    messages = messages.map(m => {
+      if (req.user.role !== 'admin') {
+        const { adminOnlyContent, ...rest } = m;
+        return rest;
+      }
+      return m;
+    });
 
     // Mark as read
     await Message.updateMany(
@@ -94,18 +115,42 @@ router.get('/conversations', auth, async (req, res) => {
 
     const convos = [];
     const seen = new Set();
+    const adminIds = await User.find({ role: 'admin' }).distinct('_id').then(ids => ids.map(id => id.toString()));
 
     for (const m of messages) {
-      const otherId = m.sender.toString() === req.user._id.toString() ? m.receiver.toString() : m.sender.toString();
+      let otherId = m.sender.toString() === req.user._id.toString() ? m.receiver.toString() : m.sender.toString();
+      
+      // If user is NOT admin, group all admin messages into a single "Support" convo
+      let isConvoWithAdmin = false;
+      if (req.user.role !== 'admin' && adminIds.includes(otherId)) {
+        otherId = 'admin_support';
+        isConvoWithAdmin = true;
+      }
+
       if (!seen.has(otherId)) {
         seen.add(otherId);
-        const otherUser = await User.findById(otherId).select('name avatar contactNumber role').lean();
-        convos.push({
-          user: otherUser,
-          lastMessage: m.content,
-          createdAt: m.createdAt,
-          unread: !m.read && m.receiver.toString() === req.user._id.toString()
-        });
+        
+        let otherUser;
+        if (isConvoWithAdmin) {
+          // Virtual Support User
+          otherUser = {
+            _id: adminIds[0], // Link to primary admin
+            name: 'FurReel Support',
+            avatar: '',
+            role: 'admin'
+          };
+        } else {
+          otherUser = await User.findById(otherId).select('name avatar contactNumber role').lean();
+        }
+
+        if (otherUser) {
+          convos.push({
+            user: otherUser,
+            lastMessage: m.content,
+            createdAt: m.createdAt,
+            unread: !m.read && m.receiver.toString() === req.user._id.toString()
+          });
+        }
       }
     }
 

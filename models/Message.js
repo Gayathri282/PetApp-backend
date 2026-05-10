@@ -28,6 +28,9 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    adminOnlyContent: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
