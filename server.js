@@ -21,9 +21,29 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Middleware
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://pet-app-frontend-steel.vercel.app',
+  'https://pet-app-frontend-m4y243n7j-gayathri282s-projects.vercel.app'
+];
+
+// Add the CLIENT_URL from env if it exists and isn't already in the list
+if (process.env.CLIENT_URL) {
+  const cleanUrl = process.env.CLIENT_URL.replace(/\/$/, '');
+  if (!allowedOrigins.includes(cleanUrl)) allowedOrigins.push(cleanUrl);
+}
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
