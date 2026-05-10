@@ -29,8 +29,8 @@ router.get(
 
     res.cookie('jwt', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: true, // Always true for cross-site sameSite:'none'
+      sameSite: 'none', // Required for Render -> Vercel communication
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
