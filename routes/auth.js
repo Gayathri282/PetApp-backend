@@ -34,7 +34,7 @@ router.get(
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    res.redirect(`${process.env.CLIENT_URL}/feed`);
+    res.redirect(`${process.env.CLIENT_URL}/feed?token=${token}`);
   }
 );
 
