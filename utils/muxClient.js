@@ -3,12 +3,15 @@ const Mux = require('@mux/mux-node');
 let Video;
 
 if (process.env.MUX_TOKEN_ID && process.env.MUX_TOKEN_SECRET) {
-  const muxClient = new Mux(process.env.MUX_TOKEN_ID, process.env.MUX_TOKEN_SECRET);
-  Video = muxClient.Video;
+  const muxClient = new Mux({
+    tokenId: process.env.MUX_TOKEN_ID,
+    tokenSecret: process.env.MUX_TOKEN_SECRET
+  });
+  Video = muxClient.video;
 } else {
   console.warn('⚠️ Mux credentials missing. Video uploads will fail.');
   Video = {
-    Assets: {
+    assets: {
       create: () => { throw new Error('Mux credentials missing. Please set MUX_TOKEN_ID and MUX_TOKEN_SECRET.'); }
     }
   };

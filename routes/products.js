@@ -134,7 +134,7 @@ router.post(
       try {
         reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
           const videoPath = path.join(__dirname, '..', 'uploads', 'videos', file.filename);
-          const asset = await Video.Assets.create({
+          const asset = await Video.assets.create({
             input: videoPath,
             playback_policy: ['public'],
           });

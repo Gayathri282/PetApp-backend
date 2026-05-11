@@ -93,7 +93,7 @@ router.post(
       let asset;
       try {
         const videoPath = path.join(__dirname, '..', 'uploads', 'videos', videoFile.filename);
-        asset = await Video.Assets.create({
+        asset = await Video.assets.create({
           input: videoPath,
           playback_policy: ['public'],
         });
