@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const path = require('path');
 const auth = require('../middleware/auth');
 const vendor = require('../middleware/vendor');
 const upload = require('../middleware/upload');
