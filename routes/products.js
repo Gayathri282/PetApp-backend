@@ -1,19 +1,18 @@
 const router = require('express').Router();
-const path = require('path');
 const auth = require('../middleware/auth');
 const vendor = require('../middleware/vendor');
 const upload = require('../middleware/upload');
 const Product = require('../models/Product');
 const Like = require('../models/Like');
 
-// @route GET /api/products/feed — paginated feed of products with primary reel
+// @route GET /api/products/feed
 router.get('/feed', auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const products = await Product.find({ 'reels.0': { $exists: true } })
+    const products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
       .populate('vendor', 'name avatar')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -40,7 +39,7 @@ router.get('/feed', auth, async (req, res) => {
       isLiked: !!likeMap[`${p._id}_0`],
     }));
 
-    const total = await Product.countDocuments({ 'reels.0': { $exists: true } });
+    const total = await Product.countDocuments({ 'reels.0': { $exists: true }, status: 'approved' });
 
     res.json({
       products: feed,
@@ -57,15 +56,50 @@ router.get('/feed', auth, async (req, res) => {
 router.get('/search', auth, async (req, res) => {
   try {
     const { q, tags } = req.query;
-    const filter = { 'reels.0': { $exists: true } };
+    const filter = { 'reels.0': { $exists: true }, status: 'approved' };
 
+    // Handle Text Search
     if (q) {
       filter.$text = { $search: q };
     }
 
+    // Handle Tags & Special Filters
     if (tags) {
       const tagArray = tags.split(',').map((t) => t.trim().toLowerCase());
-      filter.tags = { $in: tagArray };
+      
+      // Separate regular tags from special filters
+      const specialFilters = tagArray.filter(t => ['on sale', 'not for sale', 'near me'].includes(t));
+      const regularTags = tagArray.filter(t => !['on sale', 'not for sale', 'near me'].includes(t));
+
+      if (regularTags.length > 0) {
+        filter.tags = { $in: regularTags };
+      }
+
+      if (specialFilters.includes('on sale')) {
+        filter.isOnSale = true;
+      } else if (specialFilters.includes('not for sale')) {
+        filter.isOnSale = false;
+      }
+
+      if (specialFilters.includes('near me') && req.user.location?.coordinates?.[0] !== 0) {
+        // Find nearby vendors first
+        const User = require('../models/User');
+        const nearbyVendors = await User.find({
+          role: 'vendor',
+          location: {
+            $near: {
+              $geometry: {
+                type: 'Point',
+                coordinates: req.user.location.coordinates,
+              },
+              $maxDistance: 50000, // 50km radius
+            },
+          },
+        }).select('_id');
+        
+        const vendorIds = nearbyVendors.map(v => v._id);
+        filter.vendor = { $in: vendorIds };
+      }
     }
 
     const products = await Product.find(filter)
@@ -127,27 +161,17 @@ router.post(
   ]),
   async (req, res) => {
     try {
+      console.log('--- PRODUCT UPLOAD ATTEMPT ---');
+      console.log('User:', req.user._id, req.user.role);
+      console.log('Files:', req.files ? Object.keys(req.files) : 'NONE');
+      
       const { name, description, category, tags, price, isOnSale } = req.body;
 
-      const { Video } = require('../utils/muxClient');
-      let reels;
-      try {
-        reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
-          const videoPath = path.join(__dirname, '..', 'uploads', 'videos', file.filename);
-          const asset = await Video.assets.create({
-            input: videoPath,
-            playback_policy: ['public'],
-          });
-          return {
-            videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
-            thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
-            order: i,
-          };
-        }));
-      } catch (muxError) {
-        console.error('Mux Error:', muxError);
-        return res.status(500).json({ message: `Video processing failed: ${muxError.message}` });
-      }
+      const reels = (req.files?.videos || []).map((file, i) => ({
+        videoUrl: `/uploads/videos/${file.filename}`,
+        thumbnail: '',
+        order: i,
+      }));
 
       const images = (req.files?.images || []).map(
         (file) => `/uploads/images/${file.filename}`
@@ -165,6 +189,7 @@ router.post(
         tags: tags ? JSON.parse(tags) : [],
         price: parseFloat(price) || 0,
         isOnSale: isOnSale === 'true',
+        deliveryChargesAdditional: req.body.deliveryChargesAdditional === 'true',
         reels,
         images,
       });
@@ -289,6 +314,19 @@ router.post('/:id/reels/:reelIndex/like', auth, async (req, res) => {
     await Like.create({ user: req.user._id, product: id, reelIndex: idx });
     product.likeCount += 1;
     await product.save();
+
+    // Notify vendor
+    if (product.vendor.toString() !== req.user._id.toString()) {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        recipient: product.vendor,
+        sender: req.user._id,
+        type: 'like',
+        product: product._id,
+        reelIndex: idx,
+        message: `${req.user.name} liked your reel "${product.name}"`
+      });
+    }
 
     res.json({ liked: true, likeCount: product.likeCount });
   } catch (error) {

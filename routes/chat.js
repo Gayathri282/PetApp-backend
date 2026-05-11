@@ -82,10 +82,18 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
     });
 
     // Mark as read
-    await Message.updateMany(
-      { sender: otherUserId, receiver: req.user._id, read: false },
-      { read: true }
-    );
+    if (req.user.role !== 'admin') {
+      const admins = await User.find({ role: 'admin' }).distinct('_id');
+      await Message.updateMany(
+        { sender: { $in: admins }, receiver: req.user._id, read: false },
+        { read: true }
+      );
+    } else {
+      await Message.updateMany(
+        { sender: otherUserId, receiver: req.user._id, read: false },
+        { read: true }
+      );
+    }
 
     res.json({ messages });
   } catch (error) {
@@ -135,7 +143,7 @@ router.get('/conversations', auth, async (req, res) => {
           // Virtual Support User
           otherUser = {
             _id: adminIds[0], // Link to primary admin
-            name: 'FurReel Support',
+            name: 'PetPlace Support',
             avatar: '',
             role: 'admin'
           };

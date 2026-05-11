@@ -13,6 +13,7 @@ const vendorRoutes = require('./routes/vendor');
 const enquiryRoutes = require('./routes/enquiries');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -56,14 +57,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// Serve uploaded files with explicit CORS for media
+// Static files serving (for local video storage)
+const uploadsPath = path.join(__dirname, 'uploads');
 app.use('/uploads', (req, res, next) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();
-}, express.static(path.join(process.cwd(), 'uploads')));
-
-// Fallback for when process.cwd() might be different from backend folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}, express.static(uploadsPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.mp4')) {
+      res.set('Content-Type', 'video/mp4');
+    }
+  }
+}));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -72,10 +79,11 @@ app.use('/api/vendor', vendorRoutes);
 app.use('/api/enquiries', enquiryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'FurReel API', version: '1.0.0' });
+  res.json({ status: 'ok', name: 'PetPlace API', version: '1.0.0' });
 });
 
 // Error handling middleware
@@ -93,5 +101,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🐾 FurReel server running on port ${PORT}`);
+  console.log(`🐾 PetPlace server running on port ${PORT}`);
 });

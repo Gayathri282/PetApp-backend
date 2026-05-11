@@ -46,11 +46,21 @@ router.get('/me', auth, (req, res) => {
 // @route PUT /auth/me — update profile
 router.put('/me', auth, upload.single('avatar'), async (req, res) => {
   try {
-    const { name, contactNumber } = req.body;
+    const { name, contactNumber, address, location } = req.body;
     const user = req.user;
 
     if (name) user.name = name;
     if (contactNumber !== undefined) user.contactNumber = contactNumber;
+    if (address !== undefined) user.address = address;
+    if (location !== undefined) {
+      try {
+        const loc = typeof location === 'string' ? JSON.parse(location) : location;
+        user.location = loc;
+        user.markModified('location');
+      } catch (e) {
+        console.error('Failed to parse location:', e);
+      }
+    }
     
     if (req.file) {
       user.avatar = `/uploads/images/${req.file.filename}`;

@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const path = require('path');
 const auth = require('../middleware/auth');
 const vendor = require('../middleware/vendor');
 const upload = require('../middleware/upload');
@@ -82,25 +81,16 @@ router.post(
   upload.fields([{ name: 'video', maxCount: 1 }]),
   async (req, res) => {
     try {
+      console.log('--- REEL UPLOAD ATTEMPT ---');
+      console.log('User:', req.user._id, req.user.role);
       const videoFile = req.files?.video?.[0];
+      console.log('File:', videoFile ? videoFile.filename : 'MISSING');
+      
       if (!videoFile) {
         return res.status(400).json({ message: 'Video file is required' });
       }
 
       const { name, description, tags } = req.body;
-
-      const { Video } = require('../utils/muxClient');
-      let asset;
-      try {
-        const videoPath = path.join(__dirname, '..', 'uploads', 'videos', videoFile.filename);
-        asset = await Video.assets.create({
-          input: videoPath,
-          playback_policy: ['public'],
-        });
-      } catch (muxError) {
-        console.error('Mux Error:', muxError);
-        return res.status(500).json({ message: `Video processing failed: ${muxError.message}` });
-      }
 
       const product = await Product.create({
         vendor: req.user._id,
@@ -110,10 +100,11 @@ router.post(
         tags: tags ? JSON.parse(tags) : [],
         price: 0,
         isOnSale: false,
+        deliveryChargesAdditional: false,
         reels: [
           {
-            videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
-            thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
+            videoUrl: `/uploads/videos/${videoFile.filename}`,
+            thumbnail: '',
             order: 0,
           },
         ],

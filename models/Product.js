@@ -39,6 +39,15 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    status: { 
+      type: String, 
+      enum: ['pending', 'approved', 'rejected'], 
+      default: 'pending' 
+    },
+    deliveryChargesAdditional: {
+      type: Boolean,
+      default: false,
+    },
     reels: [reelSchema],
     images: {
       type: [String],

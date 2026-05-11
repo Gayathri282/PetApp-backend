@@ -1,7 +1,7 @@
 {
-  "name": "furreel-server",
+  "name": "petplace-server",
   "version": "1.0.0",
-  "description": "FurReel Pet Marketplace — Backend API",
+  "description": "PetPlace Pet Marketplace — Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,6 @@
     "seed": "node seeds/adminSeed.js"
   },
   "dependencies": {
-    "@mux/mux-node": "^14.0.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

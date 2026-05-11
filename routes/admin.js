@@ -136,6 +136,51 @@ router.put('/enquiries/:id', async (req, res) => {
   }
 });
 
+// @route GET /api/admin/products/pending
+router.get('/products/pending', async (req, res) => {
+  try {
+    const products = await Product.find({ status: 'pending' })
+      .populate('vendor', 'name avatar')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ products });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route PUT /api/admin/products/:id/review
+router.put('/products/:id/review', async (req, res) => {
+  try {
+    const { status, reason } = req.body; // 'approved' or 'rejected'
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    product.status = status;
+    await product.save();
+
+    // Notify vendor
+    const Notification = require('../models/Notification');
+    await Notification.create({
+      recipient: product.vendor,
+      sender: req.user._id,
+      type: 'system',
+      product: product._id,
+      message: status === 'approved' 
+        ? `✅ Your product "${product.name}" has been approved and is now live!` 
+        : `❌ Your product "${product.name}" was rejected. Reason: ${reason || 'Does not meet guidelines'}`
+    });
+
+    res.json({ product, message: `Product ${status}` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route DELETE /api/admin/products/:id — moderate/delete any product
 router.delete('/products/:id', async (req, res) => {
   try {

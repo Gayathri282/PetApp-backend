@@ -23,25 +23,32 @@ router.post('/', auth, async (req, res) => {
       message,
     });
 
-    // Automatically send a chat message to admin
+    // Automatically send a chat message to vendor
     const Message = require('../models/Message');
-    const User = require('../models/User');
-    const adminUser = await User.findOne({ role: 'admin' });
-    if (adminUser) {
-      await Message.create({
-        sender: req.user._id,
-        receiver: adminUser._id,
-        content: `👋 Hi! I'm interested in "${product.name}".`,
-        adminOnlyContent: `🛍️ **NEW LEAD DETAILS** (Admin Only)\n\n**Product:** ${product.name}\n**Price:** ₹${product.price.toLocaleString()}\n**Vendor:** ${product.vendor?.name}\n**Vendor Phone:** ${product.vendor?.contactNumber || 'N/A'}\n\n[View Product](${process.env.CLIENT_URL}/product/${product._id})`,
-        enquiry: enquiry._id,
-        product: product._id
-      });
-    }
+    const vendorId = product.vendor;
+    
+    await Message.create({
+      sender: req.user._id,
+      receiver: vendorId,
+      content: `👋 Hi! I'm interested in "${product.name}".`,
+      enquiry: enquiry._id,
+      product: product._id
+    });
+
+    // Also add to Activity Feed
+    const Notification = require('../models/Notification');
+    await Notification.create({
+      recipient: vendorId,
+      sender: req.user._id,
+      type: 'enquiry',
+      product: product._id,
+      message: `${req.user.name} enquired about your product "${product.name}"`
+    });
 
     res.status(201).json({ 
       enquiry, 
-      adminId: adminUser?._id,
-      message: 'Enquiry sent and chat started with support!' 
+      vendorId,
+      message: 'Enquiry sent and chat started with the vendor!' 
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

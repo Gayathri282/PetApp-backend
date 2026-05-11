@@ -10,8 +10,8 @@ const seedAdmin = async () => {
     console.log('Connected to MongoDB');
 
     const adminGoogleId = process.env.ADMIN_GOOGLE_ID;
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@furreel.com';
-    const adminName = process.env.ADMIN_NAME || 'FurReel Admin';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@petplace.com';
+    const adminName = process.env.ADMIN_NAME || 'PetPlace Admin';
 
     if (!adminGoogleId) {
       console.log('⚠️  ADMIN_GOOGLE_ID not set in .env — creating placeholder admin.');
