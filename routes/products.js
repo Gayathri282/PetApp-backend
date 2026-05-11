@@ -223,14 +223,18 @@ router.put(
         return res.status(403).json({ message: 'Not authorized' });
       }
 
-      const { name, description, category, tags, price, isOnSale } = req.body;
+      const { name, description, category, tags, price, isOnSale, deliveryChargesAdditional } = req.body;
 
       if (name) product.name = name;
       if (description !== undefined) product.description = description;
       if (category) product.category = category;
       if (tags) product.tags = JSON.parse(tags);
       if (price !== undefined) product.price = parseFloat(price) || 0;
-      if (isOnSale !== undefined) product.isOnSale = isOnSale === 'true';
+      if (isOnSale !== undefined) product.isOnSale = String(isOnSale) === 'true';
+      if (deliveryChargesAdditional !== undefined) product.deliveryChargesAdditional = String(deliveryChargesAdditional) === 'true';
+
+      // Reset status to pending on any update to require re-verification
+      product.status = 'pending';
 
       // Append new videos
       if (req.files?.videos) {

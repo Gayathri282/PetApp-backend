@@ -27,10 +27,13 @@ router.post('/', auth, async (req, res) => {
     const Message = require('../models/Message');
     const vendorId = product.vendor;
     
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const productLink = `${clientUrl.replace(/\/$/, '')}/product/${product._id}`;
+
     await Message.create({
       sender: req.user._id,
       receiver: vendorId,
-      content: `👋 Hi! I'm interested in "${product.name}".`,
+      content: `👋 Hi! I'm interested in your product: "${product.name}". \n\nView product here: ${productLink}`,
       enquiry: enquiry._id,
       product: product._id
     });
