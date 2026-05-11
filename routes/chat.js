@@ -81,18 +81,23 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
       return m;
     });
 
-    // Mark as read
+    // Mark all unread messages from the other user as read
+    await Message.updateMany(
+      { sender: otherUserId, receiver: req.user._id, read: false },
+      { read: true }
+    );
+
+    // If current user is not admin and is opening a chat with an admin,
+    // also mark all other admin messages as read (since they are grouped)
     if (req.user.role !== 'admin') {
-      const admins = await User.find({ role: 'admin' }).distinct('_id');
-      await Message.updateMany(
-        { sender: { $in: admins }, receiver: req.user._id, read: false },
-        { read: true }
-      );
-    } else {
-      await Message.updateMany(
-        { sender: otherUserId, receiver: req.user._id, read: false },
-        { read: true }
-      );
+      const targetUser = await User.findById(otherUserId).select('role');
+      if (targetUser?.role === 'admin') {
+        const admins = await User.find({ role: 'admin' }).distinct('_id');
+        await Message.updateMany(
+          { sender: { $in: admins }, receiver: req.user._id, read: false },
+          { read: true }
+        );
+      }
     }
 
     res.json({ messages });
@@ -140,9 +145,8 @@ router.get('/conversations', auth, async (req, res) => {
         
         let otherUser;
         if (isConvoWithAdmin) {
-          // Virtual Support User
           otherUser = {
-            _id: adminIds[0], // Link to primary admin
+            _id: adminIds[0],
             name: 'PetPlace Support',
             avatar: '',
             role: 'admin'
@@ -152,11 +156,19 @@ router.get('/conversations', auth, async (req, res) => {
         }
 
         if (otherUser) {
+          // Check if there are ANY unread messages in this conversation
+          const hasUnread = messages.some(msg => {
+            let msgOtherId = msg.sender.toString() === req.user._id.toString() ? msg.receiver.toString() : msg.sender.toString();
+            if (req.user.role !== 'admin' && adminIds.includes(msgOtherId)) msgOtherId = 'admin_support';
+            
+            return msgOtherId === otherId && !msg.read && msg.receiver.toString() === req.user._id.toString();
+          });
+
           convos.push({
             user: otherUser,
             lastMessage: m.content,
             createdAt: m.createdAt,
-            unread: !m.read && m.receiver.toString() === req.user._id.toString()
+            unread: hasUnread
           });
         }
       }
