@@ -36,9 +36,13 @@ if (process.env.CLIENT_URL) {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      
+      const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
+      const isVercel = origin.endsWith('.vercel.app');
+      const isAllowedManual = allowedOrigins.indexOf(origin) !== -1;
+
+      if (isLocal || isVercel || isAllowedManual) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -52,7 +56,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-// Serve uploaded files
+// Serve uploaded files with explicit CORS for media
+app.use('/uploads', (req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(process.cwd(), 'uploads')));
+
+// Fallback for when process.cwd() might be different from backend folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes

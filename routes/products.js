@@ -128,10 +128,17 @@ router.post(
     try {
       const { name, description, category, tags, price, isOnSale } = req.body;
 
-      const reels = (req.files?.videos || []).map((file, i) => ({
-        videoUrl: `/uploads/videos/${file.filename}`,
-        thumbnail: '',
-        order: i,
+      const { Video } = require('../utils/muxClient');
+      const reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
+        const asset = await Video.Assets.create({
+          input: path.join(__dirname, '..', 'uploads', 'videos', file.filename),
+          playback_policy: ['public'],
+        });
+        return {
+          videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
+          thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
+          order: i,
+        };
       }));
 
       const images = (req.files?.images || []).map(

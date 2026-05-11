@@ -88,6 +88,12 @@ router.post(
 
       const { name, description, tags } = req.body;
 
+      const { Video } = require('../utils/muxClient');
+      const asset = await Video.Assets.create({
+        input: path.join(__dirname, '..', 'uploads', 'videos', videoFile.filename),
+        playback_policy: ['public'],
+      });
+
       const product = await Product.create({
         vendor: req.user._id,
         name: name || 'Promotional Reel',
@@ -98,8 +104,8 @@ router.post(
         isOnSale: false,
         reels: [
           {
-            videoUrl: `/uploads/videos/${videoFile.filename}`,
-            thumbnail: '',
+            videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
+            thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
             order: 0,
           },
         ],
