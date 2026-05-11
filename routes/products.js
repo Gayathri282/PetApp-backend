@@ -131,7 +131,7 @@ router.post(
       const { Video } = require('../utils/muxClient');
       const reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
         const asset = await Video.Assets.create({
-          input: path.join(__dirname, '..', 'uploads', 'videos', file.filename),
+          input: path.join(process.cwd(), 'uploads', 'videos', file.filename),
           playback_policy: ['public'],
         });
         return {

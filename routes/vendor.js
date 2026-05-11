@@ -90,7 +90,7 @@ router.post(
 
       const { Video } = require('../utils/muxClient');
       const asset = await Video.Assets.create({
-        input: path.join(__dirname, '..', 'uploads', 'videos', videoFile.filename),
+        input: path.join(process.cwd(), 'uploads', 'videos', videoFile.filename),
         playback_policy: ['public'],
       });
 
