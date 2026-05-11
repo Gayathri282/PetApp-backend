@@ -90,10 +90,17 @@ router.post(
       const { name, description, tags } = req.body;
 
       const { Video } = require('../utils/muxClient');
-      const asset = await Video.Assets.create({
-        input: path.join(process.cwd(), 'uploads', 'videos', videoFile.filename),
-        playback_policy: ['public'],
-      });
+      let asset;
+      try {
+        const videoPath = path.join(__dirname, '..', 'uploads', 'videos', videoFile.filename);
+        asset = await Video.Assets.create({
+          input: videoPath,
+          playback_policy: ['public'],
+        });
+      } catch (muxError) {
+        console.error('Mux Error:', muxError);
+        return res.status(500).json({ message: `Video processing failed: ${muxError.message}` });
+      }
 
       const product = await Product.create({
         vendor: req.user._id,

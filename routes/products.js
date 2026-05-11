@@ -130,17 +130,24 @@ router.post(
       const { name, description, category, tags, price, isOnSale } = req.body;
 
       const { Video } = require('../utils/muxClient');
-      const reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
-        const asset = await Video.Assets.create({
-          input: path.join(process.cwd(), 'uploads', 'videos', file.filename),
-          playback_policy: ['public'],
-        });
-        return {
-          videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
-          thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
-          order: i,
-        };
-      }));
+      let reels;
+      try {
+        reels = await Promise.all((req.files?.videos || []).map(async (file, i) => {
+          const videoPath = path.join(__dirname, '..', 'uploads', 'videos', file.filename);
+          const asset = await Video.Assets.create({
+            input: videoPath,
+            playback_policy: ['public'],
+          });
+          return {
+            videoUrl: `https://stream.mux.com/${asset.playback_ids[0].id}.m3u8`,
+            thumbnail: `https://image.mux.com/${asset.playback_ids[0].id}/thumbnail.jpg`,
+            order: i,
+          };
+        }));
+      } catch (muxError) {
+        console.error('Mux Error:', muxError);
+        return res.status(500).json({ message: `Video processing failed: ${muxError.message}` });
+      }
 
       const images = (req.files?.images || []).map(
         (file) => `/uploads/images/${file.filename}`
