@@ -103,7 +103,7 @@ router.post(
         deliveryChargesAdditional: false,
         reels: [
           {
-            videoUrl: `/uploads/videos/${videoFile.filename}`,
+            videoUrl: videoFile.path,
             thumbnail: '',
             order: 0,
           },

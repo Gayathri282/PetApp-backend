@@ -1,25 +1,24 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Ensure upload directories exist
-const videosDir = path.join(__dirname, '..', 'uploads', 'videos');
-const imagesDir = path.join(__dirname, '..', 'uploads', 'images');
-fs.mkdirSync(videosDir, { recursive: true });
-fs.mkdirSync(imagesDir, { recursive: true });
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.mimetype.startsWith('video/')) {
-      cb(null, videosDir);
-    } else {
-      cb(null, imagesDir);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const isVideo = file.mimetype.startsWith('video/');
+    return {
+      folder: 'petplace',
+      resource_type: isVideo ? 'video' : 'image',
+      format: isVideo ? 'mp4' : undefined, // Optional: force video format
+      public_id: `${file.fieldname}-${Date.now()}`,
+    };
   },
 });
 

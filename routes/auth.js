@@ -65,7 +65,7 @@ router.put('/me', auth, upload.single('avatar'), async (req, res) => {
     }
     
     if (req.file) {
-      user.avatar = `/uploads/images/${req.file.filename}`;
+      user.avatar = req.file.path;
     }
 
     await user.save();

@@ -168,13 +168,13 @@ router.post(
       const { name, description, category, tags, price, isOnSale } = req.body;
 
       const reels = (req.files?.videos || []).map((file, i) => ({
-        videoUrl: `/uploads/videos/${file.filename}`,
+        videoUrl: file.path,
         thumbnail: '',
         order: i,
       }));
 
       const images = (req.files?.images || []).map(
-        (file) => `/uploads/images/${file.filename}`
+        (file) => file.path
       );
 
       if (reels.length === 0) {
@@ -242,7 +242,7 @@ router.put(
           return res.status(400).json({ message: 'Maximum 5 videos allowed per product' });
         }
         const newReels = req.files.videos.map((file, i) => ({
-          videoUrl: `/uploads/videos/${file.filename}`,
+          videoUrl: file.path,
           thumbnail: '',
           order: product.reels.length + i,
         }));
@@ -252,7 +252,7 @@ router.put(
       // Append new images
       if (req.files?.images) {
         const newImages = req.files.images.map(
-          (file) => `/uploads/images/${file.filename}`
+          (file) => file.path
         );
         product.images.push(...newImages);
       }
