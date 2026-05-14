@@ -83,14 +83,14 @@ router.post(
     try {
       console.log('--- REEL UPLOAD ATTEMPT ---');
       console.log('User:', req.user._id, req.user.role);
+      const { name, description, tags, videoUrl: directVideoUrl } = req.body;
       const videoFile = req.files?.video?.[0];
-      console.log('File:', videoFile ? videoFile.filename : 'MISSING');
       
-      if (!videoFile) {
-        return res.status(400).json({ message: 'Video file is required' });
-      }
+      const finalVideoUrl = directVideoUrl || videoFile?.path;
 
-      const { name, description, tags } = req.body;
+      if (!finalVideoUrl) {
+        return res.status(400).json({ message: 'Video file or URL is required' });
+      }
 
       const product = await Product.create({
         vendor: req.user._id,
@@ -103,7 +103,7 @@ router.post(
         deliveryChargesAdditional: false,
         reels: [
           {
-            videoUrl: videoFile.path,
+            videoUrl: finalVideoUrl,
             thumbnail: '',
             order: 0,
           },

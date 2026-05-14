@@ -16,7 +16,7 @@ const storage = new CloudinaryStorage({
     return {
       folder: 'petplace',
       resource_type: isVideo ? 'video' : 'image',
-      format: isVideo ? 'mp4' : undefined, // Optional: force video format
+      // Removed format constraint to avoid timeouts during upload processing
       public_id: `${file.fieldname}-${Date.now()}`,
     };
   },
@@ -37,7 +37,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
+    fileSize: 200 * 1024 * 1024, // 200MB
   },
 });
 

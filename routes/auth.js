@@ -48,7 +48,7 @@ router.get('/me', auth, (req, res) => {
 // @route PUT /auth/me — update profile
 router.put('/me', auth, upload.single('avatar'), async (req, res) => {
   try {
-    const { name, contactNumber, address, location } = req.body;
+    const { name, contactNumber, address, location, avatarUrl } = req.body;
     const user = req.user;
 
     if (name) user.name = name;
@@ -64,7 +64,9 @@ router.put('/me', auth, upload.single('avatar'), async (req, res) => {
       }
     }
     
-    if (req.file) {
+    if (avatarUrl) {
+      user.avatar = avatarUrl;
+    } else if (req.file) {
       user.avatar = req.file.path;
     }
 

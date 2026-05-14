@@ -14,6 +14,7 @@ const enquiryRoutes = require('./routes/enquiries');
 const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
 const notificationRoutes = require('./routes/notifications');
+const mediaRoutes = require('./routes/media');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -80,6 +81,7 @@ app.use('/api/enquiries', enquiryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/media', mediaRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -92,12 +94,20 @@ app.use((err, req, res, next) => {
 
   if (err.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'File too large. Max 50MB.' });
+      return res.status(400).json({ message: 'File too large. Max 200MB.' });
     }
     return res.status(400).json({ message: err.message });
   }
 
-  res.status(500).json({ message: 'Internal server error' });
+  // Cloudinary or other specific errors
+  if (err.message && (err.message.includes('cloudinary') || err.http_code)) {
+    return res.status(err.http_code || 400).json({ message: err.message });
+  }
+
+  res.status(500).json({ 
+    message: err.message || 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err : undefined
+  });
 });
 
 app.listen(PORT, () => {

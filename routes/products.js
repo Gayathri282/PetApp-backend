@@ -165,17 +165,29 @@ router.post(
       console.log('User:', req.user._id, req.user.role);
       console.log('Files:', req.files ? Object.keys(req.files) : 'NONE');
       
-      const { name, description, category, tags, price, isOnSale } = req.body;
+      const { name, description, category, tags, price, isOnSale, videoUrls, imageUrls } = req.body;
+      
+      // Parse pre-uploaded URLs if they exist
+      const directReels = videoUrls ? (typeof videoUrls === 'string' ? JSON.parse(videoUrls) : videoUrls).map((url, i) => ({
+        videoUrl: url,
+        thumbnail: '',
+        order: i
+      })) : [];
 
-      const reels = (req.files?.videos || []).map((file, i) => ({
+      const directImages = imageUrls ? (typeof imageUrls === 'string' ? JSON.parse(imageUrls) : imageUrls) : [];
+
+      const fileReels = (req.files?.videos || []).map((file, i) => ({
         videoUrl: file.path,
         thumbnail: '',
-        order: i,
+        order: directReels.length + i,
       }));
 
-      const images = (req.files?.images || []).map(
+      const fileImages = (req.files?.images || []).map(
         (file) => file.path
       );
+
+      const reels = [...directReels, ...fileReels];
+      const images = [...directImages, ...fileImages];
 
       if (reels.length === 0) {
         return res.status(400).json({ message: 'At least one video is required' });
@@ -223,7 +235,7 @@ router.put(
         return res.status(403).json({ message: 'Not authorized' });
       }
 
-      const { name, description, category, tags, price, isOnSale, deliveryChargesAdditional } = req.body;
+      const { name, description, category, tags, price, isOnSale, deliveryChargesAdditional, videoUrls, imageUrls } = req.body;
 
       if (name) product.name = name;
       if (description !== undefined) product.description = description;
@@ -236,25 +248,41 @@ router.put(
       // Reset status to pending on any update to require re-verification
       product.status = 'pending';
 
-      // Append new videos
-      if (req.files?.videos) {
-        if (product.reels.length + req.files.videos.length > 5) {
-          return res.status(400).json({ message: 'Maximum 5 videos allowed per product' });
-        }
-        const newReels = req.files.videos.map((file, i) => ({
-          videoUrl: file.path,
+      // Handle pre-uploaded URLs
+      if (videoUrls) {
+        const urls = typeof videoUrls === 'string' ? JSON.parse(videoUrls) : videoUrls;
+        const newReels = urls.map((url, i) => ({
+          videoUrl: url,
           thumbnail: '',
           order: product.reels.length + i,
         }));
         product.reels.push(...newReels);
       }
+      
+      if (imageUrls) {
+        const urls = typeof imageUrls === 'string' ? JSON.parse(imageUrls) : imageUrls;
+        product.images.push(...urls);
+      }
 
-      // Append new images
+      // Append new files
+      if (req.files?.videos) {
+        if (product.reels.length + req.files.videos.length > 5) {
+          return res.status(400).json({ message: 'Maximum 5 videos allowed per product' });
+        }
+        const fileReels = req.files.videos.map((file, i) => ({
+          videoUrl: file.path,
+          thumbnail: '',
+          order: product.reels.length + i,
+        }));
+        product.reels.push(...fileReels);
+      }
+
+      // Append new image files
       if (req.files?.images) {
-        const newImages = req.files.images.map(
+        const fileImages = req.files.images.map(
           (file) => file.path
         );
-        product.images.push(...newImages);
+        product.images.push(...fileImages);
       }
 
       await product.save();
