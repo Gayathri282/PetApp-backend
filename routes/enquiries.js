@@ -33,7 +33,7 @@ router.post('/', auth, async (req, res) => {
     await Message.create({
       sender: req.user._id,
       receiver: vendorId,
-      content: `👋 Hi! I'm interested in your product: "${product.name}". \n\nView product here: ${productLink}`,
+      content: `👋 Hi! I'm interested in your product: "${product.name}". \n\nMy contact: ${req.user.contactNumber || 'N/A'} \n\nView product here: ${productLink}`,
       enquiry: enquiry._id,
       product: product._id
     });
@@ -45,7 +45,7 @@ router.post('/', auth, async (req, res) => {
       sender: req.user._id,
       type: 'enquiry',
       product: product._id,
-      message: `${req.user.name} enquired about your product "${product.name}"`
+      message: `${req.user.name} enquired about your product "${product.name}" (Phone: ${req.user.contactNumber || 'N/A'})`
     });
 
     res.status(201).json({ 

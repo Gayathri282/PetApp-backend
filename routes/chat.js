@@ -21,7 +21,7 @@ router.post('/', auth, async (req, res) => {
     });
 
     const populated = await Message.findById(message._id)
-      .populate('sender', 'name avatar')
+      .populate('sender', 'name avatar contactNumber')
       .populate('product', 'name price');
 
     res.status(201).json({ message: populated });
@@ -68,7 +68,7 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
 
     let messages = await Message.find(filter)
       .sort({ createdAt: 1 })
-      .populate('sender', 'name avatar')
+      .populate('sender', 'name avatar contactNumber')
       .populate('product', 'name price')
       .lean();
 
