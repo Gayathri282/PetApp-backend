@@ -77,6 +77,36 @@ router.put('/me', auth, upload.single('avatar'), async (req, res) => {
   }
 });
 
+// @route DELETE /auth/me — self-delete account + all content
+router.delete('/me', auth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const Product = require('../models/Product');
+    const Like = require('../models/Like');
+    const Message = require('../models/Message');
+    const Notification = require('../models/Notification');
+    const VendorApplication = require('../models/VendorApplication');
+    const User = require('../models/User');
+
+    // Cascade delete all content
+    const userProducts = await Product.find({ vendor: userId }).select('_id');
+    const productIds = userProducts.map(p => p._id);
+
+    await Product.deleteMany({ vendor: userId });
+    await Like.deleteMany({ $or: [{ user: userId }, { product: { $in: productIds } }] });
+    await Message.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
+    await Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] });
+    await VendorApplication.deleteMany({ applicant: userId });
+    await User.findByIdAndDelete(userId);
+
+    // Clear auth cookie and token
+    res.clearCookie('jwt');
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route POST /auth/logout
 router.post('/logout', (req, res) => {
   res.clearCookie('jwt');

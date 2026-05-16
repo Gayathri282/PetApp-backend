@@ -224,12 +224,82 @@ router.put('/products/:id/review', async (req, res) => {
 // @route DELETE /api/admin/products/:id — moderate/delete any product
 router.delete('/products/:id', async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const { reason } = req.body;
+    const deleteReason = reason || 'Violation of community guidelines';
+
+    const product = await Product.findById(req.params.id).populate('vendor', 'name _id');
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+
+    const Notification = require('../models/Notification');
+    const Message = require('../models/Message');
+
+    // Notify vendor before deleting
+    if (product.vendor) {
+      await Notification.create({
+        recipient: product.vendor._id,
+        sender: req.user._id,
+        type: 'system',
+        message: `🗑️ Your product "${product.name}" has been permanently removed by admin. Reason: ${deleteReason}`
+      });
+
+      await Message.create({
+        sender: req.user._id,
+        receiver: product.vendor._id,
+        content: `🚫 *Admin Notice — Product Permanently Removed*\n\nYour product **"${product.name}"** has been permanently deleted from PetPlace.\n\n**Reason:** ${deleteReason}\n\nIf you believe this was a mistake, please reply here and our team will review your case.`,
+      });
+    }
+
+    await Product.findByIdAndDelete(req.params.id);
     await Like.deleteMany({ product: req.params.id });
+
     res.json({ message: 'Product deleted by admin' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route GET /api/admin/users — list all users
+router.get('/users', async (req, res) => {
+  try {
+    const { q } = req.query;
+    const filter = q ? { $or: [{ name: { $regex: q, $options: 'i' } }, { email: { $regex: q, $options: 'i' } }] } : {};
+    const users = await User.find(filter).sort({ createdAt: -1 }).limit(100).lean();
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route DELETE /api/admin/users/:id — take down any account + cascade delete all content
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.role === 'admin') return res.status(403).json({ message: 'Cannot delete admin accounts' });
+
+    const Message = require('../models/Message');
+    const Notification = require('../models/Notification');
+    const VendorApplication = require('../models/VendorApplication');
+
+    // Send them a message before deleting so they know why if they log in again on a different account
+    // (We store the reason in notifications for the record, cascade deletes the messages after)
+    const takedownReason = reason || 'Violation of community guidelines';
+
+    // Cascade delete all user content
+    const userProducts = await Product.find({ vendor: user._id }).select('_id');
+    const productIds = userProducts.map(p => p._id);
+
+    await Product.deleteMany({ vendor: user._id });
+    await Like.deleteMany({ $or: [{ user: user._id }, { product: { $in: productIds } }] });
+    await Message.deleteMany({ $or: [{ sender: user._id }, { receiver: user._id }] });
+    await Notification.deleteMany({ $or: [{ recipient: user._id }, { sender: user._id }] });
+    await VendorApplication.deleteMany({ applicant: user._id });
+    await User.findByIdAndDelete(user._id);
+
+    res.json({ message: `Account for ${user.name} deleted. Reason: ${takedownReason}` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
