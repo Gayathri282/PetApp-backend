@@ -83,13 +83,21 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/media', mediaRoutes);
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+// Root route - fixes 404 on main URL
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    message: '🐾 PetPlace server is running',
+    timestamp: new Date().toISOString()
+  });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'PetPlace API', version: '1.0.0' });
+// Health check route - for uptime monitoring
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok',
+    timestamp: Date.now()
+  });
 });
 
 // Error handling middleware
