@@ -235,7 +235,7 @@ router.put(
         return res.status(403).json({ message: 'Not authorized' });
       }
 
-      const { name, description, category, tags, price, isOnSale, deliveryChargesAdditional, videoUrls, imageUrls } = req.body;
+      const { name, description, category, tags, price, isOnSale, deliveryChargesAdditional, videoUrls, imageUrls, replaceVideos } = req.body;
 
       if (name) product.name = name;
       if (description !== undefined) product.description = description;
@@ -247,6 +247,12 @@ router.put(
 
       // Reset status to pending on any update to require re-verification
       product.status = 'pending';
+
+      // Handle Video Replacement/Appending
+      const isReplacing = String(replaceVideos) === 'true';
+      if (isReplacing && (videoUrls || req.files?.videos)) {
+        product.reels = [];
+      }
 
       // Handle pre-uploaded URLs
       if (videoUrls) {
@@ -261,6 +267,7 @@ router.put(
       
       if (imageUrls) {
         const urls = typeof imageUrls === 'string' ? JSON.parse(imageUrls) : imageUrls;
+        if (isReplacing) product.images = [];
         product.images.push(...urls);
       }
 
