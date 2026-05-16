@@ -200,8 +200,8 @@ router.post(
         category: category || 'other',
         tags: tags ? JSON.parse(tags) : [],
         price: parseFloat(price) || 0,
-        isOnSale: isOnSale === 'true',
-        deliveryChargesAdditional: req.body.deliveryChargesAdditional === 'true',
+        isOnSale: String(isOnSale) === 'true',
+        deliveryChargesAdditional: String(req.body.deliveryChargesAdditional) === 'true',
         reels,
         images,
       });
