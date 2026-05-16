@@ -84,6 +84,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/media', mediaRoutes);
 
 // Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', name: 'PetPlace API', version: '1.0.0' });
 });

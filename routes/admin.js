@@ -149,6 +149,26 @@ router.get('/products/pending', async (req, res) => {
   }
 });
 
+// @route GET /api/admin/products — list all products for moderation
+router.get('/products', async (req, res) => {
+  try {
+    const { status, q } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (q) filter.name = { $regex: q, $options: 'i' };
+
+    const products = await Product.find(filter)
+      .populate('vendor', 'name avatar')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({ products });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route PUT /api/admin/products/:id/review
 router.put('/products/:id/review', async (req, res) => {
   try {

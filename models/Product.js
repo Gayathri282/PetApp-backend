@@ -64,4 +64,10 @@ const productSchema = new mongoose.Schema(
 // Text index for search
 productSchema.index({ name: 'text', description: 'text' });
 
+// Performance indexes
+productSchema.index({ createdAt: -1 });               // Feed sorting
+productSchema.index({ vendor: 1 });                    // Vendor lookups
+productSchema.index({ isOnSale: 1 });                  // Sale filtering
+productSchema.index({ createdAt: -1, isOnSale: 1 });  // Combined feed + sale
+
 module.exports = mongoose.model('Product', productSchema);

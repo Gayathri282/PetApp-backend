@@ -13,12 +13,22 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const isVideo = file.mimetype.startsWith('video/');
-    return {
+    const params = {
       folder: 'petplace',
       resource_type: isVideo ? 'video' : 'image',
-      // Removed format constraint to avoid timeouts during upload processing
       public_id: `${file.fieldname}-${Date.now()}`,
     };
+
+    if (isVideo) {
+      params.transformation = [
+        { width: 720, crop: 'limit' },
+        { quality: 'auto:good' },
+        { fetch_format: 'mp4' },
+        { audio_codec: 'aac' },
+      ];
+    }
+
+    return params;
   },
 });
 
