@@ -177,23 +177,43 @@ router.put('/products/:id/review', async (req, res) => {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate('vendor', 'name');
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     product.status = status;
     await product.save();
 
-    // Notify vendor
     const Notification = require('../models/Notification');
-    await Notification.create({
-      recipient: product.vendor,
-      sender: req.user._id,
-      type: 'system',
-      product: product._id,
-      message: status === 'approved' 
-        ? `✅ Your product "${product.name}" has been approved and is now live!` 
-        : `❌ Your product "${product.name}" was rejected. Reason: ${reason || 'Does not meet guidelines'}`
-    });
+    const Message = require('../models/Message');
+
+    if (status === 'approved') {
+      // Notify vendor via activity feed
+      await Notification.create({
+        recipient: product.vendor._id,
+        sender: req.user._id,
+        type: 'system',
+        product: product._id,
+        message: `✅ Your product "${product.name}" has been approved and is now live!`
+      });
+    } else {
+      const takedownReason = reason || 'Does not meet our community guidelines';
+
+      // Notify via activity feed
+      await Notification.create({
+        recipient: product.vendor._id,
+        sender: req.user._id,
+        type: 'system',
+        product: product._id,
+        message: `❌ Your product "${product.name}" has been taken down. Reason: ${takedownReason}`
+      });
+
+      // Also send a direct chat message so the vendor sees it in Messages
+      await Message.create({
+        sender: req.user._id,
+        receiver: product.vendor._id,
+        content: `⚠️ *Admin Notice — Content Taken Down*\n\nYour product **"${product.name}"** has been taken down from PetPlace.\n\n**Reason:** ${takedownReason}\n\nIf you believe this was a mistake, please reply here and our team will review your case.`,
+      });
+    }
 
     res.json({ product, message: `Product ${status}` });
   } catch (error) {
