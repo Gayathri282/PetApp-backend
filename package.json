@@ -1,7 +1,7 @@
 {
-  "name": "petplace-server",
+  "name": "kerelapets-server",
   "version": "1.0.0",
-  "description": "PetPlace Pet Marketplace — Backend API",
+  "description": "KerelaPets Pet Marketplace — Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

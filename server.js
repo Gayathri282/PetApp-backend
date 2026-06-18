@@ -87,7 +87,7 @@ app.use('/api/media', mediaRoutes);
 app.get('/', (req, res) => {
   res.status(200).json({ 
     status: 'ok',
-    message: '🐾 PetPlace server is running',
+    message: '🐾 KerelaPets server is running',
     timestamp: new Date().toISOString()
   });
 });
@@ -123,5 +123,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🐾 PetPlace server running on port ${PORT}`);
+  console.log(`🐾 KerelaPets server running on port ${PORT}`);
 });

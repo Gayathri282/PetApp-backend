@@ -5,8 +5,12 @@ const User = require('../models/User');
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientID: process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your_google_client_id'
+        ? process.env.GOOGLE_CLIENT_ID
+        : 'dummy-google-client-id',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CLIENT_SECRET !== 'your_google_client_secret'
+        ? process.env.GOOGLE_CLIENT_SECRET
+        : 'dummy-google-client-secret',
       callbackURL: process.env.BACKEND_URL 
         ? `${process.env.BACKEND_URL.replace(/\/$/, '')}/auth/google/callback`
         : '/auth/google/callback',
