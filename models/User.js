@@ -46,6 +46,12 @@ const userSchema = new mongoose.Schema(
       coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude]
     },
     address: { type: String, default: '' },
+    // Interest weights for personalized feed: { tagName: score (0-100) }
+    interests: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
   },
   { timestamps: true }
 );

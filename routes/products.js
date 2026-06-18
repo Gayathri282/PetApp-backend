@@ -5,6 +5,21 @@ const upload = require('../middleware/upload');
 const Product = require('../models/Product');
 const Like = require('../models/Like');
 
+const User = require('../models/User');
+
+// @route GET /api/products/latest-ts — lightweight poll for new content
+router.get('/latest-ts', auth, async (req, res) => {
+  try {
+    const latest = await Product.findOne({ 'reels.0': { $exists: true }, status: 'approved' })
+      .sort({ createdAt: -1 })
+      .select('createdAt')
+      .lean();
+    res.json({ latestTimestamp: latest ? latest.createdAt : null });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route GET /api/products/feed
 router.get('/feed', auth, async (req, res) => {
   try {
@@ -12,12 +27,77 @@ router.get('/feed', auth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 5;
     const skip = (page - 1) * limit;
 
-    const products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
-      .populate('vendor', 'name avatar')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    // Fetch user's interest map
+    const userDoc = await User.findById(req.user._id).select('interests').lean();
+    const interestMap = userDoc?.interests || {};
+    const interestEntries = Object.entries(interestMap);
+
+    let products;
+
+    if (interestEntries.length === 0) {
+      // New user — pure recency sort
+      products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
+        .populate('vendor', 'name avatar')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+    } else {
+      // Get top-10 interest tags by weight
+      const topTags = interestEntries
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([tag]) => tag);
+
+      const batchSize = limit + 5; // fetch a bit extra for blending
+
+      // Interest-ranked batch: products matching top interest tags, newest first within match
+      const interestBatch = await Product.find({
+        'reels.0': { $exists: true },
+        status: 'approved',
+        tags: { $in: topTags },
+      })
+        .populate('vendor', 'name avatar')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(batchSize)
+        .lean();
+
+      // Recency batch: newest products regardless of tags
+      const recentBatch = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
+        .populate('vendor', 'name avatar')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(batchSize)
+        .lean();
+
+      // Score products by number of matching interest tags (higher = better match)
+      const score = (p) =>
+        (p.tags || []).reduce((acc, t) => acc + (interestMap[t] || 0), 0);
+
+      // Deduplicate interest batch against recent batch by _id
+      const interestIds = new Set(interestBatch.map((p) => String(p._id)));
+      const freshOnly = recentBatch.filter((p) => !interestIds.has(String(p._id)));
+
+      // Sort interest batch by score descending
+      interestBatch.sort((a, b) => score(b) - score(a));
+
+      // 70/30 blend: every 3rd slot gets a recency-only item
+      const blended = [];
+      let iIdx = 0, fIdx = 0;
+      for (let slot = 0; blended.length < limit; slot++) {
+        if (slot % 3 === 2 && fIdx < freshOnly.length) {
+          blended.push(freshOnly[fIdx++]);
+        } else if (iIdx < interestBatch.length) {
+          blended.push(interestBatch[iIdx++]);
+        } else if (fIdx < freshOnly.length) {
+          blended.push(freshOnly[fIdx++]);
+        } else {
+          break;
+        }
+      }
+      products = blended;
+    }
 
     // Get user's likes for these products
     const productIds = products.map((p) => p._id);
@@ -370,6 +450,41 @@ router.post('/:id/reels/:reelIndex/like', auth, async (req, res) => {
     res.json({ liked: true, likeCount: product.likeCount });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// @route POST /api/products/:id/track — record interest signal
+router.post('/:id/track', auth, async (req, res) => {
+  try {
+    const { action } = req.body; // 'view' | 'like' | 'share'
+    const weights = { view: 1, like: 3, share: 5 };
+    const weight = weights[action] || 1;
+
+    const product = await Product.findById(req.params.id).select('tags category').lean();
+    if (!product) return res.json({ ok: true }); // silent fail
+
+    const signals = [...(product.tags || [])]; 
+    if (product.category && product.category !== 'other') signals.push(product.category);
+
+    if (signals.length === 0) return res.json({ ok: true });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.json({ ok: true });
+
+    if (!user.interests) user.interests = new Map();
+
+    signals.forEach(tag => {
+      const current = user.interests.get(tag) || 0;
+      user.interests.set(tag, Math.min(100, current + weight));
+    });
+
+    user.markModified('interests');
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (error) {
+    // Non-critical — don't surface errors to client
+    res.json({ ok: true });
   }
 });
 
