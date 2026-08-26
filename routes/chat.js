@@ -22,7 +22,7 @@ router.post('/', auth, async (req, res) => {
 
     const populated = await Message.findById(message._id)
       .populate('sender', 'name avatar contactNumber')
-      .populate('product', 'name price');
+      .populate('product', 'name price images reels vendor isOnSale');
 
     res.status(201).json({ message: populated });
   } catch (error) {
@@ -37,7 +37,6 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
 
     let filter;
     if (req.user.role === 'admin') {
-      // Admins can see messages between this user and ANY admin
       const admins = await User.find({ role: 'admin' }).distinct('_id');
       filter = {
         $or: [
@@ -46,7 +45,6 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
         ],
       };
     } else {
-      // Check if the otherUserId is an admin
       const targetUser = await User.findById(otherUserId).select('role');
       if (targetUser?.role === 'admin') {
         const admins = await User.find({ role: 'admin' }).distinct('_id');
@@ -69,7 +67,7 @@ router.get('/messages/:otherUserId', auth, async (req, res) => {
     let messages = await Message.find(filter)
       .sort({ createdAt: 1 })
       .populate('sender', 'name avatar contactNumber')
-      .populate('product', 'name price')
+      .populate('product', 'name price images reels vendor isOnSale')
       .lean();
 
     // Only show adminOnlyContent to admins
