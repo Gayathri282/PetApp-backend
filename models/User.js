@@ -34,6 +34,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    status: {
+      type: String,
+      enum: ['active', 'suspended'],
+      default: 'active',
+    },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
     vendorDetails: {
       businessName: { type: String, default: '' },
       description: { type: String, default: '' },
