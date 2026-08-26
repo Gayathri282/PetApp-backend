@@ -92,8 +92,8 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check route - for uptime monitoring
-app.get('/health', (req, res) => {
+// Health check routes - for uptime monitoring & frontend ping
+app.get(['/health', '/api/health'], (req, res) => {
   res.status(200).json({ 
     status: 'ok',
     timestamp: Date.now()
