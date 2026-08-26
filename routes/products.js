@@ -200,8 +200,30 @@ router.get('/search', auth, async (req, res) => {
   }
 });
 
+const jwt = require('jsonwebtoken');
+
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies?.jwt) {
+      token = req.cookies.jwt;
+    }
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-__v');
+      if (user) req.user = user;
+    }
+  } catch {
+    // optional auth — proceed unauthenticated if token invalid/expired
+  }
+  next();
+};
+
 // @route GET /api/products/:id — full product with all reels
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate('vendor', 'name avatar')
@@ -211,15 +233,16 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Get likes for all reels
-    const userLikes = await Like.find({
-      user: req.user._id,
-      product: product._id,
-    }).lean();
+    let likeSet = new Set();
+    if (req.user) {
+      const userLikes = await Like.find({
+        user: req.user._id,
+        product: product._id,
+      }).lean();
+      likeSet = new Set(userLikes.map((l) => l.reelIndex));
+    }
 
-    const likeSet = new Set(userLikes.map((l) => l.reelIndex));
-
-    product.reels = product.reels.map((reel, i) => ({
+    product.reels = (product.reels || []).map((reel, i) => ({
       ...reel,
       isLiked: likeSet.has(i),
     }));
