@@ -211,6 +211,8 @@ router.put('/applications/:id', async (req, res) => {
           contactEmail: application.contactEmail,
           contactNumber: application.contactNumber,
           address: application.address,
+          petCategories: application.petCategories || [],
+          upiDetails: application.upiDetails || {},
         },
       });
     }

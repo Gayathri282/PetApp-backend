@@ -15,6 +15,7 @@ const adminRoutes = require('./routes/admin');
 const chatRoutes = require('./routes/chat');
 const notificationRoutes = require('./routes/notifications');
 const mediaRoutes = require('./routes/media');
+const orderRoutes = require('./routes/orders');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -82,6 +83,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Root route - fixes 404 on main URL
 app.get('/', (req, res) => {

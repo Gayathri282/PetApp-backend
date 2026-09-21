@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema(
       contactEmail: { type: String, default: '' },
       contactNumber: { type: String, default: '' },
       address: { type: String, default: '' },
+      petCategories: { type: [String], default: [] },
+      upiDetails: {
+        upiId: { type: String, default: '' },
+        upiName: { type: String, default: '' },
+        qrCodeUrl: { type: String, default: '' },
+        phonePeNumber: { type: String, default: '' },
+        gpayNumber: { type: String, default: '' },
+      },
     },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
