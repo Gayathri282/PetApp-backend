@@ -54,6 +54,11 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    shippingChargeKerala: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     reels: [reelSchema],
     images: {
       type: [String],

@@ -26,33 +26,11 @@ router.post('/', auth, async (req, res) => {
     }
 
     const vendorDetails = product.vendor.vendorDetails || {};
-    const shippingDetails = vendorDetails.shippingDetails || { shippingType: 'unconfigured', flatRate: 0 };
     const upiDetails = vendorDetails.upiDetails || {};
 
-    const shippingType = shippingDetails.shippingType || 'unconfigured';
-    let shippingCharge = 0;
-
-    if (shippingType === 'free') {
-      shippingCharge = 0;
-    } else if (shippingType === 'flat') {
-      shippingCharge = Math.max(0, Number(shippingDetails.flatRate) || 0);
-    } else if (shippingType === 'variable') {
-      if (customShippingCharge !== undefined && customShippingCharge !== null) {
-        shippingCharge = Math.max(0, Number(customShippingCharge) || 0);
-      } else {
-        return res.status(400).json({
-          message: 'Shipping varies by location. Please confirm shipping charge with vendor in chat.',
-          requiresShippingConfirmation: true,
-          shippingType: 'variable',
-        });
-      }
-    } else {
-      return res.status(400).json({
-        message: 'Shipping charge not yet confirmed by vendor. Please ask vendor in chat.',
-        requiresShippingConfirmation: true,
-        shippingType: 'unconfigured',
-      });
-    }
+    const shippingCharge = (product.shippingChargeKerala !== undefined && product.shippingChargeKerala !== null)
+      ? Math.max(0, Number(product.shippingChargeKerala) || 0)
+      : (vendorDetails.shippingDetails?.flatRate || 0);
 
     const productPrice = Math.max(0, Number(product.price) || 0);
     const totalAmount = productPrice + shippingCharge;
