@@ -18,6 +18,12 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    type: {
+      type: String,
+      enum: ['product', 'reel'],
+      default: 'product',
+      index: true,
+    },
     description: {
       type: String,
       default: '',

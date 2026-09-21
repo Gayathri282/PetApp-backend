@@ -57,6 +57,15 @@ const userSchema = new mongoose.Schema(
         phonePeNumber: { type: String, default: '' },
         gpayNumber: { type: String, default: '' },
       },
+      shippingDetails: {
+        shippingType: {
+          type: String,
+          enum: ['free', 'flat', 'variable', 'unconfigured'],
+          default: 'unconfigured',
+        },
+        flatRate: { type: Number, default: 0 },
+        notes: { type: String, default: '' },
+      },
     },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },

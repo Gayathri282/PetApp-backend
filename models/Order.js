@@ -20,23 +20,57 @@ const orderSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    amount: {
+    productSnapshot: {
+      name: { type: String, required: true },
+      price: { type: Number, required: true },
+      image: { type: String, default: '' },
+    },
+    vendorSnapshot: {
+      name: { type: String, default: '' },
+      upiId: { type: String, default: '' },
+      upiName: { type: String, default: '' },
+    },
+    productPrice: {
       type: Number,
       required: true,
     },
-    status: {
+    shippingCharge: {
+      type: Number,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
+    transactionId: {
       type: String,
-      enum: ['pending_payment', 'payment_submitted', 'confirmed', 'rejected', 'delivered', 'cancelled'],
-      default: 'pending_payment',
+      default: '',
       index: true,
     },
-    paymentDetails: {
-      upiId: { type: String, default: '' },
-      utrNumber: { type: String, default: '', index: true },
-      paymentScreenshot: { type: String, default: '' },
-      submittedAt: { type: Date },
-      verifiedAt: { type: Date },
-      notes: { type: String, default: '' },
+    paymentMethod: {
+      type: String,
+      default: 'UPI',
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['pending_verification', 'verified', 'declined'],
+      default: 'pending_verification',
+      index: true,
+    },
+    orderStatus: {
+      type: String,
+      enum: ['payment_pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+      default: 'payment_pending',
+      index: true,
+    },
+    declineReason: {
+      type: String,
+      default: '',
+    },
+    shippingType: {
+      type: String,
+      enum: ['free', 'flat', 'variable', 'unconfigured'],
+      default: 'unconfigured',
     },
     shippingAddress: {
       fullName: { type: String, default: '' },

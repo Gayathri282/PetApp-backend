@@ -11,7 +11,7 @@ const Message = require('../models/Message');
 // @route POST /api/orders — Create a new order (buyer initiates purchase)
 router.post('/', auth, async (req, res) => {
   try {
-    const { productId, shippingAddress } = req.body;
+    const { productId, shippingAddress, customShippingCharge } = req.body;
     if (!productId) {
       return res.status(400).json({ message: 'Product ID is required' });
     }
@@ -25,16 +25,64 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'You cannot buy your own product' });
     }
 
+    const vendorDetails = product.vendor.vendorDetails || {};
+    const shippingDetails = vendorDetails.shippingDetails || { shippingType: 'unconfigured', flatRate: 0 };
+    const upiDetails = vendorDetails.upiDetails || {};
+
+    const shippingType = shippingDetails.shippingType || 'unconfigured';
+    let shippingCharge = 0;
+
+    if (shippingType === 'free') {
+      shippingCharge = 0;
+    } else if (shippingType === 'flat') {
+      shippingCharge = Math.max(0, Number(shippingDetails.flatRate) || 0);
+    } else if (shippingType === 'variable') {
+      if (customShippingCharge !== undefined && customShippingCharge !== null) {
+        shippingCharge = Math.max(0, Number(customShippingCharge) || 0);
+      } else {
+        return res.status(400).json({
+          message: 'Shipping varies by location. Please confirm shipping charge with vendor in chat.',
+          requiresShippingConfirmation: true,
+          shippingType: 'variable',
+        });
+      }
+    } else {
+      return res.status(400).json({
+        message: 'Shipping charge not yet confirmed by vendor. Please ask vendor in chat.',
+        requiresShippingConfirmation: true,
+        shippingType: 'unconfigured',
+      });
+    }
+
+    const productPrice = Math.max(0, Number(product.price) || 0);
+    const totalAmount = productPrice + shippingCharge;
+
+    const productImage = (product.images && product.images.length > 0)
+      ? product.images[0]
+      : (product.reels && product.reels.length > 0 ? product.reels[0].thumbnail : '');
+
     const order = await Order.create({
       buyer: req.user._id,
       vendor: product.vendor._id,
       product: product._id,
-      amount: product.price,
-      status: 'pending_payment',
-      shippingAddress: shippingAddress || {},
-      paymentDetails: {
-        upiId: product.vendor.vendorDetails?.upiDetails?.upiId || '',
+      productSnapshot: {
+        name: product.name,
+        price: productPrice,
+        image: productImage || '',
       },
+      vendorSnapshot: {
+        name: product.vendor.name || 'Vendor',
+        upiId: upiDetails.upiId || '',
+        upiName: upiDetails.upiName || product.vendor.name || 'Vendor',
+      },
+      productPrice,
+      shippingCharge,
+      totalAmount,
+      shippingType,
+      paymentMethod: 'UPI',
+      paymentStatus: 'pending_verification',
+      orderStatus: 'payment_pending',
+      shippingAddress: shippingAddress || {},
     });
 
     await order.populate([
@@ -43,81 +91,152 @@ router.post('/', auth, async (req, res) => {
       { path: 'buyer', select: 'name email avatar contactNumber' },
     ]);
 
-    res.status(201).json({ order, message: 'Order created. Proceed with UPI payment.' });
+    res.status(201).json({ 
+      order, 
+      message: 'Order initiated. Complete payment via UPI and submit Transaction ID.',
+      vendorUpi: {
+        upiId: upiDetails.upiId || '',
+        upiName: upiDetails.upiName || product.vendor.name || 'Vendor',
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route PUT /api/orders/:id/submit-payment — Buyer submits UTR number & payment screenshot
-router.put(
-  '/:id/submit-payment',
-  auth,
-  upload.fields([{ name: 'screenshot', maxCount: 1 }]),
-  async (req, res) => {
-    try {
-      const { utrNumber, notes } = req.body;
-      const screenshotFile = req.files?.screenshot?.[0];
+// @route PUT /api/orders/:id/submit-payment — Buyer submits UPI Transaction / UTR ID
+router.put('/:id/submit-payment', auth, async (req, res) => {
+  try {
+    const { transactionId, utrNumber, notes } = req.body;
+    const finalTxId = (transactionId || utrNumber || '').trim();
 
-      if (!utrNumber || utrNumber.trim().length < 6) {
-        return res.status(400).json({ message: 'Valid UTR / Transaction Reference ID (12 digits) is required' });
-      }
-
-      const order = await Order.findById(req.params.id);
-      if (!order) return res.status(404).json({ message: 'Order not found' });
-
-      if (order.buyer.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: 'Unauthorized' });
-      }
-
-      // Check for duplicate UTR
-      const duplicateUTR = await Order.findOne({
-        'paymentDetails.utrNumber': utrNumber.trim(),
-        _id: { $ne: order._id },
-        status: { $in: ['payment_submitted', 'confirmed', 'delivered'] },
-      });
-
-      if (duplicateUTR) {
-        return res.status(400).json({ message: 'This UTR / Transaction ID has already been submitted for another order' });
-      }
-
-      order.paymentDetails.utrNumber = utrNumber.trim();
-      if (screenshotFile?.path) {
-        order.paymentDetails.paymentScreenshot = screenshotFile.path;
-      } else if (req.body.paymentScreenshot) {
-        order.paymentDetails.paymentScreenshot = req.body.paymentScreenshot;
-      }
-      order.paymentDetails.submittedAt = new Date();
-      order.paymentDetails.notes = notes || '';
-      order.status = 'payment_submitted';
-
-      await order.save();
-
-      await order.populate([
-        { path: 'product', select: 'name price' },
-        { path: 'buyer', select: 'name email' },
-      ]);
-
-      // Notify vendor
-      await Notification.create({
-        recipient: order.vendor,
-        sender: req.user._id,
-        type: 'system',
-        message: `💳 Payment submitted for "${order.product.name}". UTR: ${utrNumber}. Please verify & confirm.`,
-      });
-
-      await Message.create({
-        sender: req.user._id,
-        receiver: order.vendor,
-        content: `🛒 *Order Payment Submitted*\n\nProduct: **${order.product.name}**\nAmount: ₹${order.amount}\nUTR Number: \`${utrNumber.trim()}\`\n\nPlease check your bank / UPI app and confirm the payment.`,
-      });
-
-      res.json({ order, message: 'Payment reference submitted successfully. Vendor will verify shortly.' });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+    if (!finalTxId || finalTxId.length < 4) {
+      return res.status(400).json({ message: 'Valid UPI Transaction / UTR ID is required' });
     }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (order.buyer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    if (order.paymentStatus === 'verified') {
+      return res.status(400).json({ message: 'This payment has already been verified and cannot be updated.' });
+    }
+
+    order.transactionId = finalTxId;
+    order.paymentStatus = 'pending_verification';
+    order.orderStatus = 'payment_pending';
+    if (notes) order.vendorNotes = notes;
+
+    await order.save();
+
+    await order.populate([
+      { path: 'product', select: 'name price' },
+      { path: 'buyer', select: 'name email' },
+      { path: 'vendor', select: 'name email' },
+    ]);
+
+    // Format chat message payload for automatic Purchase Request card in buyer/vendor chat
+    const chatContent = `🛒 **PURCHASE_REQUEST**
+Order ID: ${order._id}
+Product: ${order.productSnapshot.name}
+Product Price: ₹${order.productPrice.toLocaleString('en-IN')}
+Shipping: ${order.shippingCharge > 0 ? `₹${order.shippingCharge.toLocaleString('en-IN')}` : 'FREE'}
+Total: ₹${order.totalAmount.toLocaleString('en-IN')}
+UPI Transaction ID: ${finalTxId}
+Payment Status: PENDING_VERIFICATION`;
+
+    await Message.create({
+      sender: req.user._id,
+      receiver: order.vendor._id,
+      content: chatContent,
+      productId: order.product._id,
+    });
+
+    await Notification.create({
+      recipient: order.vendor._id,
+      sender: req.user._id,
+      type: 'system',
+      message: `💳 Payment submitted for "${order.productSnapshot.name}". Tx ID: ${finalTxId}. Please verify & confirm in chat.`,
+    });
+
+    res.json({ order, message: 'Payment submitted for verification. Vendor will verify shortly.' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-);
+});
+
+// @route PUT /api/orders/:id/verify-payment — Vendor approves or declines payment
+router.put('/:id/verify-payment', auth, vendor, async (req, res) => {
+  try {
+    const { action, reason } = req.body; // action = 'approve' | 'decline'
+    if (!['approve', 'decline'].includes(action)) {
+      return res.status(400).json({ message: 'Action must be "approve" or "decline"' });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (order.vendor.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the vendor of this product can verify payment' });
+    }
+
+    // Prevent duplicate verification
+    if (order.paymentStatus === 'verified' || order.paymentStatus === 'declined') {
+      return res.status(400).json({ message: `Payment is already ${order.paymentStatus.toUpperCase()} and cannot be changed.` });
+    }
+
+    let systemChatMessage = '';
+
+    if (action === 'approve') {
+      order.paymentStatus = 'verified';
+      order.orderStatus = 'processing';
+      order.declineReason = '';
+
+      systemChatMessage = `✅ **PAYMENT_VERIFIED**
+Order ID: ${order._id}
+Product: ${order.productSnapshot.name}
+Amount: ₹${order.totalAmount.toLocaleString('en-IN')}
+Transaction ID: ${order.transactionId}
+Order status: Payment Verified`;
+    } else {
+      order.paymentStatus = 'declined';
+      order.orderStatus = 'cancelled';
+      order.declineReason = reason || 'Payment details could not be verified by vendor.';
+
+      systemChatMessage = `❌ **PAYMENT_DECLINED**
+Order ID: ${order._id}
+Product: ${order.productSnapshot.name}
+Reason: ${order.declineReason}
+Transaction ID: ${order.transactionId}
+Status: Verification Declined`;
+    }
+
+    await order.save();
+
+    await Message.create({
+      sender: req.user._id,
+      receiver: order.buyer,
+      content: systemChatMessage,
+      productId: order.product,
+    });
+
+    await Notification.create({
+      recipient: order.buyer,
+      sender: req.user._id,
+      type: 'system',
+      message: action === 'approve'
+        ? `✓ Vendor verified your payment for "${order.productSnapshot.name}".`
+        : `❌ Payment verification declined for "${order.productSnapshot.name}".`,
+    });
+
+    res.json({ order, message: `Payment ${order.paymentStatus} successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // @route GET /api/orders/my-orders — List buyer's orders
 router.get('/my-orders', auth, async (req, res) => {
@@ -144,56 +263,6 @@ router.get('/vendor-orders', auth, vendor, async (req, res) => {
       .lean();
 
     res.json({ orders });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// @route PUT /api/orders/:id/vendor-status — Vendor updates order status ('confirmed', 'rejected', 'delivered', 'cancelled')
-router.put('/:id/vendor-status', auth, vendor, async (req, res) => {
-  try {
-    const { status, vendorNotes } = req.body;
-    if (!['confirmed', 'rejected', 'delivered', 'cancelled'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status update' });
-    }
-
-    const order = await Order.findById(req.params.id).populate('product', 'name price');
-    if (!order) return res.status(404).json({ message: 'Order not found' });
-
-    if (order.vendor.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    order.status = status;
-    if (vendorNotes) order.vendorNotes = vendorNotes;
-
-    if (status === 'confirmed') {
-      order.paymentDetails.verifiedAt = new Date();
-    }
-
-    await order.save();
-
-    const statusIcons = {
-      confirmed: '✅ Payment Verified & Order Confirmed',
-      rejected: '❌ Order Rejected / Payment Unverified',
-      delivered: '📦 Order Marked Delivered',
-      cancelled: '🚫 Order Cancelled',
-    };
-
-    await Notification.create({
-      recipient: order.buyer,
-      sender: req.user._id,
-      type: 'system',
-      message: `${statusIcons[status] || 'Order Status Updated'} for "${order.product.name}".`,
-    });
-
-    await Message.create({
-      sender: req.user._id,
-      receiver: order.buyer,
-      content: `📦 *Order Update*\n\nYour order for **${order.product.name}** status is now: **${status.toUpperCase()}**.\n${vendorNotes ? `Note: ${vendorNotes}` : ''}`,
-    });
-
-    res.json({ order, message: `Order status updated to ${status}` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

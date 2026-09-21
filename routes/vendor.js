@@ -77,6 +77,36 @@ router.put('/upi-settings', auth, vendor, async (req, res) => {
   }
 });
 
+// @route PUT /api/vendor/shipping-settings — update vendor shipping configuration
+router.put('/shipping-settings', auth, vendor, async (req, res) => {
+  try {
+    const { shippingType, flatRate, notes } = req.body;
+
+    if (!['free', 'flat', 'variable', 'unconfigured'].includes(shippingType)) {
+      return res.status(400).json({ message: 'Invalid shipping type' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.vendorDetails) user.vendorDetails = {};
+    user.vendorDetails.shippingDetails = {
+      shippingType,
+      flatRate: shippingType === 'flat' ? Math.max(0, Number(flatRate) || 0) : 0,
+      notes: notes || '',
+    };
+
+    await user.save();
+
+    res.json({ 
+      shippingDetails: user.vendorDetails.shippingDetails, 
+      message: 'Shipping settings updated successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route GET /api/vendor/application-status — check own application status
 router.get('/application-status', auth, async (req, res) => {
   try {
