@@ -59,6 +59,12 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    shippingGroups: [
+      {
+        name: { type: String, default: '' },
+        charge: { type: Number, default: 0, min: 0 },
+      }
+    ],
     reels: [reelSchema],
     images: {
       type: [String],

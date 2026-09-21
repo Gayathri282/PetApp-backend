@@ -297,8 +297,17 @@ router.post(
       }
 
       const rawShippingKerala = req.body.shippingChargeKerala;
-      if (rawShippingKerala === undefined || rawShippingKerala === null || String(rawShippingKerala).trim() === '' || isNaN(Number(rawShippingKerala)) || Number(rawShippingKerala) < 0) {
-        return res.status(400).json({ message: 'Shipping charge across Kerala (₹) is required and must be 0 or greater.' });
+      const parsedShippingKerala = (rawShippingKerala !== undefined && rawShippingKerala !== null && String(rawShippingKerala).trim() !== '' && !isNaN(Number(rawShippingKerala)))
+        ? Math.max(0, parseFloat(rawShippingKerala) || 0)
+        : 0;
+
+      let shippingGroups = [];
+      if (req.body.shippingGroups) {
+        try {
+          shippingGroups = typeof req.body.shippingGroups === 'string'
+            ? JSON.parse(req.body.shippingGroups)
+            : req.body.shippingGroups;
+        } catch (e) {}
       }
 
       const product = await Product.create({
@@ -309,7 +318,8 @@ router.post(
         category: category || 'other',
         tags: tags ? JSON.parse(tags) : [],
         price: parseFloat(price) || 0,
-        shippingChargeKerala: Math.max(0, parseFloat(rawShippingKerala) || 0),
+        shippingChargeKerala: parsedShippingKerala,
+        shippingGroups: Array.isArray(shippingGroups) ? shippingGroups : [],
         isOnSale: String(isOnSale) === 'true',
         deliveryChargesAdditional: String(req.body.deliveryChargesAdditional) === 'true',
         reels,
@@ -345,7 +355,7 @@ router.put(
         return res.status(403).json({ message: 'Not authorized' });
       }
 
-      const { name, description, category, tags, price, shippingChargeKerala, isOnSale, deliveryChargesAdditional, videoUrls, imageUrls, replaceVideos } = req.body;
+      const { name, description, category, tags, price, shippingChargeKerala, shippingGroups, isOnSale, deliveryChargesAdditional, videoUrls, imageUrls, replaceVideos } = req.body;
 
       if (name) product.name = name;
       if (description !== undefined) product.description = description;
@@ -354,6 +364,12 @@ router.put(
       if (price !== undefined) product.price = parseFloat(price) || 0;
       if (shippingChargeKerala !== undefined && shippingChargeKerala !== null && String(shippingChargeKerala).trim() !== '') {
         product.shippingChargeKerala = Math.max(0, parseFloat(shippingChargeKerala) || 0);
+      }
+      if (shippingGroups) {
+        try {
+          const parsedGroups = typeof shippingGroups === 'string' ? JSON.parse(shippingGroups) : shippingGroups;
+          if (Array.isArray(parsedGroups)) product.shippingGroups = parsedGroups;
+        } catch (e) {}
       }
       if (isOnSale !== undefined) product.isOnSale = String(isOnSale) === 'true';
       if (deliveryChargesAdditional !== undefined) product.deliveryChargesAdditional = String(deliveryChargesAdditional) === 'true';

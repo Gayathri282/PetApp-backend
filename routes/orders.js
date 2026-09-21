@@ -11,7 +11,7 @@ const Message = require('../models/Message');
 // @route POST /api/orders — Create a new order (buyer initiates purchase)
 router.post('/', auth, async (req, res) => {
   try {
-    const { productId, shippingAddress, customShippingCharge } = req.body;
+    const { productId, shippingAddress, selectedShippingCharge, selectedShippingName } = req.body;
     if (!productId) {
       return res.status(400).json({ message: 'Product ID is required' });
     }
@@ -28,9 +28,16 @@ router.post('/', auth, async (req, res) => {
     const vendorDetails = product.vendor.vendorDetails || {};
     const upiDetails = vendorDetails.upiDetails || {};
 
-    const shippingCharge = (product.shippingChargeKerala !== undefined && product.shippingChargeKerala !== null)
-      ? Math.max(0, Number(product.shippingChargeKerala) || 0)
-      : (vendorDetails.shippingDetails?.flatRate || 0);
+    let shippingCharge = 0;
+    if (selectedShippingCharge !== undefined && selectedShippingCharge !== null && !isNaN(Number(selectedShippingCharge))) {
+      shippingCharge = Math.max(0, Number(selectedShippingCharge));
+    } else if (product.shippingChargeKerala !== undefined && product.shippingChargeKerala !== null && !isNaN(Number(product.shippingChargeKerala))) {
+      shippingCharge = Math.max(0, Number(product.shippingChargeKerala));
+    } else {
+      shippingCharge = 0; // Default to FREE if unconfigured by vendor
+    }
+
+    const shippingType = selectedShippingName || (shippingCharge === 0 ? 'free' : 'flat');
 
     const productPrice = Math.max(0, Number(product.price) || 0);
     const totalAmount = productPrice + shippingCharge;
