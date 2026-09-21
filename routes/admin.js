@@ -51,6 +51,38 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// @route POST /api/admin/clean-dummy-data — Wipe all dummy products, reels, applications, orders, and messages
+router.post('/clean-dummy-data', async (req, res) => {
+  try {
+    const Order = require('../models/Order');
+
+    const [products, apps, enquiries, likes, messages, notifications, orders] = await Promise.all([
+      Product.deleteMany({}),
+      VendorApplication.deleteMany({}),
+      Enquiry.deleteMany({}),
+      Like.deleteMany({}),
+      require('../models/Message').deleteMany({}),
+      require('../models/Notification').deleteMany({}),
+      Order.deleteMany({}),
+    ]);
+
+    res.json({
+      message: 'All dummy data, products, reels, and test orders deleted successfully.',
+      deleted: {
+        products: products.deletedCount,
+        applications: apps.deletedCount,
+        enquiries: enquiries.deletedCount,
+        likes: likes.deletedCount,
+        messages: messages.deletedCount,
+        notifications: notifications.deletedCount,
+        orders: orders.deletedCount,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route GET /api/admin/reels — List all reels for moderation
 router.get('/reels', async (req, res) => {
   try {
