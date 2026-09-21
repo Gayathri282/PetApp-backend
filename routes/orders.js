@@ -85,7 +85,8 @@ router.post('/', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('[CREATE ORDER ERROR]:', error);
+    res.status(500).json({ message: error.message || 'Failed to create order' });
   }
 });
 

@@ -69,8 +69,7 @@ const orderSchema = new mongoose.Schema(
     },
     shippingType: {
       type: String,
-      enum: ['free', 'flat', 'variable', 'unconfigured'],
-      default: 'unconfigured',
+      default: 'flat',
     },
     shippingAddress: {
       fullName: { type: String, default: '' },
