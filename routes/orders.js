@@ -12,6 +12,15 @@ const Message = require('../models/Message');
 router.post('/', auth, async (req, res) => {
   try {
     const { productId, shippingAddress, selectedShippingCharge, selectedShippingName } = req.body;
+
+    console.log(`[ORDER CREATE REQUEST]
+----------------------
+Buyer ID: ${req.user._id}
+Product ID: ${productId || 'MISSING'}
+Selected Shipping Charge: ${selectedShippingCharge}
+Selected Shipping Name: ${selectedShippingName}
+----------------------`);
+
     if (!productId) {
       return res.status(400).json({ message: 'Product ID is required' });
     }
@@ -21,20 +30,46 @@ router.post('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Product type validation: Reels cannot be purchased directly
+    if (product.type === 'reel') {
+      return res.status(400).json({ message: 'Reels cannot be purchased directly as products' });
+    }
+
+    // Vendor validation
+    if (!product.vendor) {
+      return res.status(400).json({ message: 'Seller account for this product was not found' });
+    }
+
+    // Prevent vendor from buying their own product
     if (req.user._id.toString() === product.vendor._id.toString()) {
-      return res.status(400).json({ message: 'You cannot buy your own product' });
+      return res.status(400).json({ message: 'You cannot buy your own product. Please test using a different buyer account.' });
     }
 
     const vendorDetails = product.vendor.vendorDetails || {};
     const upiDetails = vendorDetails.upiDetails || {};
+    const upiId = upiDetails.upiId || '';
+
+    // Vendor UPI validation
+    if (!upiId || upiId.trim() === '') {
+      return res.status(400).json({ message: 'Seller has not configured a UPI ID yet. Please contact the seller.' });
+    }
+
+    // Explicit Shipping Configuration Validation
+    const rawShipping = product.shippingChargeKerala;
+    const shippingGroups = product.shippingGroups || [];
+    const isShippingConfigured = (rawShipping !== undefined && rawShipping !== null && rawShipping !== '' && !isNaN(Number(rawShipping))) || (Array.isArray(shippingGroups) && shippingGroups.length > 0);
+
+    if (!isShippingConfigured) {
+      return res.status(400).json({ message: 'Shipping charge is not configured for this product by the vendor.' });
+    }
 
     let shippingCharge = 0;
     if (selectedShippingCharge !== undefined && selectedShippingCharge !== null && !isNaN(Number(selectedShippingCharge))) {
       shippingCharge = Math.max(0, Number(selectedShippingCharge));
-    } else if (product.shippingChargeKerala !== undefined && product.shippingChargeKerala !== null && !isNaN(Number(product.shippingChargeKerala))) {
-      shippingCharge = Math.max(0, Number(product.shippingChargeKerala));
+    } else if (rawShipping !== undefined && rawShipping !== null && rawShipping !== '' && !isNaN(Number(rawShipping))) {
+      shippingCharge = Math.max(0, Number(rawShipping));
     } else {
-      shippingCharge = 0; // Default to FREE if unconfigured by vendor
+      shippingCharge = 0;
     }
 
     const shippingType = selectedShippingName || (shippingCharge === 0 ? 'free' : 'flat');
@@ -57,7 +92,7 @@ router.post('/', auth, async (req, res) => {
       },
       vendorSnapshot: {
         name: product.vendor.name || 'Vendor',
-        upiId: upiDetails.upiId || '',
+        upiId: upiId,
         upiName: upiDetails.upiName || product.vendor.name || 'Vendor',
       },
       productPrice,
@@ -76,16 +111,31 @@ router.post('/', auth, async (req, res) => {
       { path: 'buyer', select: 'name email avatar contactNumber' },
     ]);
 
+    console.log(`[ORDER CREATE SUCCESS]
+----------------------
+Order ID: ${order._id}
+Product: ${product.name} (${product._id})
+Vendor: ${product.vendor.name} (${product.vendor._id})
+Product Price: ₹${productPrice}
+Kerala Shipping: ₹${shippingCharge}
+Total: ₹${totalAmount}
+Payment Method: UPI
+Payment Status: ${order.paymentStatus}
+----------------------`);
+
     res.status(201).json({ 
       order, 
       message: 'Order initiated. Complete payment via UPI and submit Transaction ID.',
       vendorUpi: {
-        upiId: upiDetails.upiId || '',
+        upiId: upiId,
         upiName: upiDetails.upiName || product.vendor.name || 'Vendor',
       }
     });
   } catch (error) {
-    console.error('[CREATE ORDER ERROR]:', error);
+    console.error('[ORDER CREATE ERROR]:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message, error: error.errors });
+    }
     res.status(500).json({ message: error.message || 'Failed to create order' });
   }
 });
