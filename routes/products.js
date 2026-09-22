@@ -37,7 +37,7 @@ router.get('/feed', auth, async (req, res) => {
     if (interestEntries.length === 0) {
       // New user — pure recency sort
       products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
-        .populate('vendor', 'name avatar')
+        .populate('vendor', 'name avatar vendorDetails.upiDetails')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -57,7 +57,7 @@ router.get('/feed', auth, async (req, res) => {
         status: 'approved',
         tags: { $in: topTags },
       })
-        .populate('vendor', 'name avatar')
+        .populate('vendor', 'name avatar vendorDetails.upiDetails')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(batchSize)
@@ -65,7 +65,7 @@ router.get('/feed', auth, async (req, res) => {
 
       // Recency batch: newest products regardless of tags
       const recentBatch = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
-        .populate('vendor', 'name avatar')
+        .populate('vendor', 'name avatar vendorDetails.upiDetails')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(batchSize)
@@ -183,7 +183,7 @@ router.get('/search', auth, async (req, res) => {
     }
 
     const products = await Product.find(filter)
-      .populate('vendor', 'name avatar')
+      .populate('vendor', 'name avatar vendorDetails.upiDetails')
       .sort(q ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
       .limit(50)
       .lean();
@@ -226,7 +226,7 @@ const optionalAuth = async (req, res, next) => {
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate('vendor', 'name avatar')
+      .populate('vendor', 'name avatar vendorDetails.upiDetails')
       .lean();
 
     if (!product) {
@@ -326,7 +326,7 @@ router.post(
         images,
       });
 
-      await product.populate('vendor', 'name avatar');
+      await product.populate('vendor', 'name avatar vendorDetails.upiDetails');
 
       res.status(201).json({ product });
     } catch (error) {
@@ -422,7 +422,7 @@ router.put(
       }
 
       await product.save();
-      await product.populate('vendor', 'name avatar');
+      await product.populate('vendor', 'name avatar vendorDetails.upiDetails');
 
       res.json({ product });
     } catch (error) {

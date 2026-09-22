@@ -124,7 +124,7 @@ router.get('/application-status', auth, async (req, res) => {
 router.get('/products', auth, vendor, async (req, res) => {
   try {
     const products = await Product.find({ vendor: req.user._id })
-      .populate('vendor', 'name avatar')
+      .populate('vendor', 'name avatar vendorDetails.upiDetails')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -171,7 +171,7 @@ router.post(
         ],
       });
 
-      await product.populate('vendor', 'name avatar');
+      await product.populate('vendor', 'name avatar vendorDetails.upiDetails');
 
       res.status(201).json({ product });
     } catch (error) {
