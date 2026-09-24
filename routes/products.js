@@ -7,8 +7,30 @@ const Like = require('../models/Like');
 
 const User = require('../models/User');
 
+const jwt = require('jsonwebtoken');
+
+const optionalAuth = async (req, res, next) => {
+  try {
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies?.jwt) {
+      token = req.cookies.jwt;
+    }
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-__v');
+      if (user) req.user = user;
+    }
+  } catch {
+    // optional auth — proceed unauthenticated if token invalid/expired
+  }
+  next();
+};
+
 // @route GET /api/products/latest-ts — lightweight poll for new content
-router.get('/latest-ts', auth, async (req, res) => {
+router.get('/latest-ts', optionalAuth, async (req, res) => {
   try {
     const latest = await Product.findOne({ 'reels.0': { $exists: true }, status: 'approved' })
       .sort({ createdAt: -1 })
@@ -21,21 +43,16 @@ router.get('/latest-ts', auth, async (req, res) => {
 });
 
 // @route GET /api/products/feed
-router.get('/feed', auth, async (req, res) => {
+router.get('/feed', optionalAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
     const skip = (page - 1) * limit;
 
-    // Fetch user's interest map
-    const userDoc = await User.findById(req.user._id).select('interests').lean();
-    const interestMap = userDoc?.interests || {};
-    const interestEntries = Object.entries(interestMap);
-
     let products;
 
-    if (interestEntries.length === 0) {
-      // New user — pure recency sort
+    if (!req.user) {
+      // Unauthenticated guest user — pure recency sort
       products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
         .populate('vendor', 'name avatar vendorDetails.upiDetails')
         .sort({ createdAt: -1 })
@@ -43,74 +60,91 @@ router.get('/feed', auth, async (req, res) => {
         .limit(limit)
         .lean();
     } else {
-      // Get top-10 interest tags by weight
-      const topTags = interestEntries
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([tag]) => tag);
+      // Fetch user's interest map
+      const userDoc = await User.findById(req.user._id).select('interests').lean();
+      const interestMap = userDoc?.interests || {};
+      const interestEntries = Object.entries(interestMap);
 
-      const batchSize = limit + 5; // fetch a bit extra for blending
+      if (interestEntries.length === 0) {
+        // New user — pure recency sort
+        products = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
+          .populate('vendor', 'name avatar vendorDetails.upiDetails')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean();
+      } else {
+        // Get top-10 interest tags by weight
+        const topTags = interestEntries
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([tag]) => tag);
 
-      // Interest-ranked batch: products matching top interest tags, newest first within match
-      const interestBatch = await Product.find({
-        'reels.0': { $exists: true },
-        status: 'approved',
-        tags: { $in: topTags },
-      })
-        .populate('vendor', 'name avatar vendorDetails.upiDetails')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(batchSize)
-        .lean();
+        const batchSize = limit + 5; // fetch a bit extra for blending
 
-      // Recency batch: newest products regardless of tags
-      const recentBatch = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
-        .populate('vendor', 'name avatar vendorDetails.upiDetails')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(batchSize)
-        .lean();
+        // Interest-ranked batch: products matching top interest tags, newest first within match
+        const interestBatch = await Product.find({
+          'reels.0': { $exists: true },
+          status: 'approved',
+          tags: { $in: topTags },
+        })
+          .populate('vendor', 'name avatar vendorDetails.upiDetails')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(batchSize)
+          .lean();
 
-      // Score products by number of matching interest tags (higher = better match)
-      const score = (p) =>
-        (p.tags || []).reduce((acc, t) => acc + (interestMap[t] || 0), 0);
+        // Recency batch: newest products regardless of tags
+        const recentBatch = await Product.find({ 'reels.0': { $exists: true }, status: 'approved' })
+          .populate('vendor', 'name avatar vendorDetails.upiDetails')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(batchSize)
+          .lean();
 
-      // Deduplicate interest batch against recent batch by _id
-      const interestIds = new Set(interestBatch.map((p) => String(p._id)));
-      const freshOnly = recentBatch.filter((p) => !interestIds.has(String(p._id)));
+        // Score products by number of matching interest tags (higher = better match)
+        const score = (p) =>
+          (p.tags || []).reduce((acc, t) => acc + (interestMap[t] || 0), 0);
 
-      // Sort interest batch by score descending
-      interestBatch.sort((a, b) => score(b) - score(a));
+        // Deduplicate interest batch against recent batch by _id
+        const interestIds = new Set(interestBatch.map((p) => String(p._id)));
+        const freshOnly = recentBatch.filter((p) => !interestIds.has(String(p._id)));
 
-      // 70/30 blend: every 3rd slot gets a recency-only item
-      const blended = [];
-      let iIdx = 0, fIdx = 0;
-      for (let slot = 0; blended.length < limit; slot++) {
-        if (slot % 3 === 2 && fIdx < freshOnly.length) {
-          blended.push(freshOnly[fIdx++]);
-        } else if (iIdx < interestBatch.length) {
-          blended.push(interestBatch[iIdx++]);
-        } else if (fIdx < freshOnly.length) {
-          blended.push(freshOnly[fIdx++]);
-        } else {
-          break;
+        // Sort interest batch by score descending
+        interestBatch.sort((a, b) => score(b) - score(a));
+
+        // 70/30 blend: every 3rd slot gets a recency-only item
+        const blended = [];
+        let iIdx = 0, fIdx = 0;
+        for (let slot = 0; blended.length < limit; slot++) {
+          if (slot % 3 === 2 && fIdx < freshOnly.length) {
+            blended.push(freshOnly[fIdx++]);
+          } else if (iIdx < interestBatch.length) {
+            blended.push(interestBatch[iIdx++]);
+          } else if (fIdx < freshOnly.length) {
+            blended.push(freshOnly[fIdx++]);
+          } else {
+            break;
+          }
         }
+        products = blended;
       }
-      products = blended;
     }
 
-    // Get user's likes for these products
-    const productIds = products.map((p) => p._id);
-    const userLikes = await Like.find({
-      user: req.user._id,
-      product: { $in: productIds },
-    }).lean();
-
+    // Get user's likes for these products if logged in
     const likeMap = {};
-    userLikes.forEach((l) => {
-      const key = `${l.product}_${l.reelIndex}`;
-      likeMap[key] = true;
-    });
+    if (req.user) {
+      const productIds = products.map((p) => p._id);
+      const userLikes = await Like.find({
+        user: req.user._id,
+        product: { $in: productIds },
+      }).lean();
+
+      userLikes.forEach((l) => {
+        const key = `${l.product}_${l.reelIndex}`;
+        likeMap[key] = true;
+      });
+    }
 
     const feed = products.map((p) => ({
       ...p,
@@ -133,7 +167,7 @@ router.get('/feed', auth, async (req, res) => {
 });
 
 // @route GET /api/products/search
-router.get('/search', auth, async (req, res) => {
+router.get('/search', optionalAuth, async (req, res) => {
   try {
     const { q, tags } = req.query;
     const filter = { 'reels.0': { $exists: true }, status: 'approved' };
@@ -161,7 +195,7 @@ router.get('/search', auth, async (req, res) => {
         filter.isOnSale = false;
       }
 
-      if (specialFilters.includes('near me') && req.user.location?.coordinates?.[0] !== 0) {
+      if (specialFilters.includes('near me') && req.user?.location?.coordinates?.[0] !== 0) {
         // Find nearby vendors first
         const User = require('../models/User');
         const nearbyVendors = await User.find({
@@ -199,28 +233,6 @@ router.get('/search', auth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
-const jwt = require('jsonwebtoken');
-
-const optionalAuth = async (req, res, next) => {
-  try {
-    let token = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (req.cookies?.jwt) {
-      token = req.cookies.jwt;
-    }
-    if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select('-__v');
-      if (user) req.user = user;
-    }
-  } catch {
-    // optional auth — proceed unauthenticated if token invalid/expired
-  }
-  next();
-};
 
 // @route GET /api/products/:id — full product with all reels
 router.get('/:id', optionalAuth, async (req, res) => {
@@ -503,8 +515,9 @@ router.post('/:id/reels/:reelIndex/like', auth, async (req, res) => {
 });
 
 // @route POST /api/products/:id/track — record interest signal
-router.post('/:id/track', auth, async (req, res) => {
+router.post('/:id/track', optionalAuth, async (req, res) => {
   try {
+    if (!req.user) return res.json({ ok: true });
     const { action } = req.body; // 'view' | 'like' | 'share'
     const weights = { view: 1, like: 3, share: 5 };
     const weight = weights[action] || 1;
