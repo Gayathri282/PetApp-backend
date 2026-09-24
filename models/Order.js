@@ -51,20 +51,6 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: 'UPI',
     },
-    razorpayOrderId: {
-      type: String,
-      default: '',
-      index: true,
-    },
-    razorpayPaymentId: {
-      type: String,
-      default: '',
-      index: true,
-    },
-    razorpaySignature: {
-      type: String,
-      default: '',
-    },
     paymentStatus: {
       type: String,
       enum: ['pending_verification', 'verified', 'declined'],
