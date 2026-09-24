@@ -1,23 +1,26 @@
-const router = require('express').Router();
-const auth = require('../middleware/auth');
-const Message = require('../models/Message');
-const User = require('../models/User');
+const upload = require('../middleware/upload');
 
 // @route POST /api/chat — send message
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, upload.single('image'), async (req, res) => {
   try {
     const { receiverId, content, enquiryId, productId } = req.body;
+    let imageUrl = req.body.image || '';
 
-    if (!receiverId || !content) {
-      return res.status(400).json({ message: 'Receiver and content required' });
+    if (req.file) {
+      imageUrl = req.file.path;
+    }
+
+    if (!receiverId || (!content && !imageUrl)) {
+      return res.status(400).json({ message: 'Receiver and content or image required' });
     }
 
     const message = await Message.create({
       sender: req.user._id,
       receiver: receiverId,
-      content,
-      enquiry: enquiryId,
-      product: productId,
+      content: content || '',
+      image: imageUrl,
+      enquiry: enquiryId || undefined,
+      product: productId || undefined,
     });
 
     const populated = await Message.findById(message._id)

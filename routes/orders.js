@@ -144,11 +144,7 @@ Payment Status: ${order.paymentStatus}
 router.put('/:id/submit-payment', auth, async (req, res) => {
   try {
     const { transactionId, utrNumber, notes } = req.body;
-    const finalTxId = (transactionId || utrNumber || '').trim();
-
-    if (!finalTxId || finalTxId.length < 4) {
-      return res.status(400).json({ message: 'Valid UPI Transaction / UTR ID is required' });
-    }
+    const finalTxId = (transactionId || utrNumber || '').trim() || 'SCREENSHOT_PENDING';
 
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
