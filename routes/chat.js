@@ -1,4 +1,8 @@
+const router = require('express').Router();
+const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const Message = require('../models/Message');
+const User = require('../models/User');
 
 // @route POST /api/chat — send message
 router.post('/', auth, upload.single('image'), async (req, res) => {
