@@ -65,6 +65,24 @@ const productSchema = new mongoose.Schema(
         charge: { type: Number, default: 0, min: 0 },
       }
     ],
+    // Animal Welfare & Health Compliance Attributes
+    isLiveAnimal: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    animalCompliance: {
+      breed: { type: String, default: '' },
+      ageInWeeks: { type: Number, default: 0 },
+      vaccinationStatus: {
+        type: String,
+        enum: ['fully_vaccinated', 'partially_vaccinated', 'not_vaccinated', 'not_applicable'],
+        default: 'not_applicable',
+      },
+      vetCertificateUrl: { type: String, default: '' },
+      microchipNumber: { type: String, default: '' },
+      welfareDeclarationAccepted: { type: Boolean, default: false },
+    },
     reels: [reelSchema],
     images: {
       type: [String],

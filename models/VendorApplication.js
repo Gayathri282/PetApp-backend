@@ -39,6 +39,18 @@ const vendorApplicationSchema = new mongoose.Schema(
       phonePeNumber: { type: String, default: '' },
       gpayNumber: { type: String, default: '' },
     },
+    // Legal & Animal Welfare Verification
+    sawbLicenseNumber: { type: String, default: '' }, // State Animal Welfare Board Reg
+    petShopLicenseNumber: { type: String, default: '' }, // Municipal Pet Shop Trade License
+    govIdType: { type: String, enum: ['aadhaar', 'pan', 'gstin', 'none'], default: 'none' },
+    govIdNumber: { type: String, default: '' },
+    licenseProofUrl: { type: String, default: '' },
+    // Cashfree Bank Account Details for Automated Payouts / Splits
+    bankAccountDetails: {
+      accountHolder: { type: String, default: '' },
+      accountNumber: { type: String, default: '' },
+      ifscCode: { type: String, default: '' },
+    },
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

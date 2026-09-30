@@ -66,6 +66,24 @@ const userSchema = new mongoose.Schema(
         flatRate: { type: Number, default: 0 },
         notes: { type: String, default: '' },
       },
+      // Animal Welfare & Legal Licensing Verification
+      complianceDetails: {
+        sawbLicenseNumber: { type: String, default: '' }, // State Animal Welfare Board Reg No
+        petShopLicenseNumber: { type: String, default: '' }, // Municipal Pet Shop Trade License
+        govIdType: { type: String, enum: ['aadhaar', 'pan', 'gstin', 'none'], default: 'none' },
+        govIdNumber: { type: String, default: '' },
+        isLegalSellerVerified: { type: Boolean, default: false },
+        licenseProofUrl: { type: String, default: '' },
+      },
+      // Cashfree Easy Split Sub-merchant Details
+      cashfreeDetails: {
+        vendorId: { type: String, default: '' }, // Cashfree vendor_id
+        status: { type: String, enum: ['UNREGISTERED', 'PENDING', 'ACTIVE', 'REJECTED'], default: 'UNREGISTERED' },
+        bankAccountHolder: { type: String, default: '' },
+        bankAccountNumber: { type: String, default: '' },
+        ifscCode: { type: String, default: '' },
+        settlementCycle: { type: String, default: 'DEFERRED' }, // DEFERRED hold for animal welfare safety check
+      },
     },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },

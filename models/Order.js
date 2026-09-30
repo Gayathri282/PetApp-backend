@@ -49,13 +49,29 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      default: 'UPI',
+      enum: ['UPI', 'CASHFREE_SPLIT', 'COD'],
+      default: 'CASHFREE_SPLIT',
     },
     paymentStatus: {
       type: String,
-      enum: ['pending_verification', 'verified', 'declined'],
-      default: 'pending_verification',
+      enum: ['pending_verification', 'payment_pending', 'paid', 'verified', 'declined', 'failed'],
+      default: 'payment_pending',
       index: true,
+    },
+    // Cashfree Easy Split Metadata
+    cashfreeSplitDetails: {
+      cashfreeOrderId: { type: String, default: '', index: true },
+      paymentSessionId: { type: String, default: '' },
+      platformCommissionPercent: { type: Number, default: 5 }, // Platform commission %
+      platformFeeAmount: { type: Number, default: 0 },
+      vendorPayoutAmount: { type: Number, default: 0 },
+      vendorCashfreeId: { type: String, default: '' },
+      settlementStatus: {
+        type: String,
+        enum: ['UNSETTLED', 'HELD_IN_ESCROW', 'SETTLED_TO_VENDOR', 'REFUNDED'],
+        default: 'UNSETTLED',
+      },
+      settlementDate: { type: Date },
     },
     orderStatus: {
       type: String,
