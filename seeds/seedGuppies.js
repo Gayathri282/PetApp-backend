@@ -197,13 +197,13 @@ async function seedGuppies() {
 
     // 1. Find or create vendor: CK Guppies & Bettas
     let vendor = await User.findOne({
-      $or: [{ email: 'contact.ckguppyfarm@gmail.com' }, { name: 'CK Guppies & Bettas' }],
+      $or: [{ email: 'contact.ckguppyfarm@gmail.com' }, { name: 'CK Guppies' }, { name: 'CK Guppies & Bettas' }],
     });
     if (!vendor) {
       vendor = await User.create({
         googleId: 'vendor-ck-guppies-id',
         email: 'contact.ckguppyfarm@gmail.com',
-        name: 'CK Guppies & Bettas',
+        name: 'CK Guppies',
         avatar: '/ck-guppies-logo.jpg',
         role: 'vendor',
         vendorApproved: true,
@@ -214,15 +214,17 @@ async function seedGuppies() {
         },
         address: 'Kochi, Kerala, India',
         vendorDetails: {
+          businessName: 'CK Guppies',
           upiDetails: {
             upiId: '8667377338@paytm',
-            accountHolderName: 'CK Guppies & Bettas',
+            accountHolderName: 'CK Guppies',
           },
           selectedCategories: ['Guppies', 'Fish', 'Bettas'],
         },
       });
-      console.log('✅ Created Vendor: CK Guppies & Bettas (contact.ckguppyfarm@gmail.com)');
+      console.log('✅ Created Vendor: CK Guppies (contact.ckguppyfarm@gmail.com)');
     } else {
+      vendor.name = 'CK Guppies';
       vendor.email = 'contact.ckguppyfarm@gmail.com';
       vendor.phone = '8667377338';
       vendor.avatar = '/ck-guppies-logo.jpg';
@@ -230,10 +232,12 @@ async function seedGuppies() {
       vendor.role = 'vendor';
       vendor.vendorApproved = true;
       if (vendor.vendorDetails && vendor.vendorDetails.upiDetails) {
+        vendor.vendorDetails.businessName = 'CK Guppies';
         vendor.vendorDetails.upiDetails.upiId = '8667377338@paytm';
+        vendor.vendorDetails.upiDetails.accountHolderName = 'CK Guppies';
       }
       await vendor.save();
-      console.log('ℹ️ Updated Vendor email to: contact.ckguppyfarm@gmail.com');
+      console.log('ℹ️ Updated Vendor name to CK Guppies & email to: contact.ckguppyfarm@gmail.com');
     }
 
     // 2. Clear previous seeded guppies if any

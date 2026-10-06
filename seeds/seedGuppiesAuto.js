@@ -188,14 +188,14 @@ const GUPPY_VARIETIES = [
 
 module.exports = async function seedGuppiesAuto() {
   let vendor = await User.findOne({
-    $or: [{ email: 'contact.ckguppyfarm@gmail.com' }, { name: 'CK Guppies & Bettas' }],
+    $or: [{ email: 'contact.ckguppyfarm@gmail.com' }, { name: 'CK Guppies' }, { name: 'CK Guppies & Bettas' }],
   });
 
   if (!vendor) {
     vendor = await User.create({
       googleId: 'vendor-ck-guppies-id',
       email: 'contact.ckguppyfarm@gmail.com',
-      name: 'CK Guppies & Bettas',
+      name: 'CK Guppies',
       avatar: '/ck-guppies-logo.jpg',
       role: 'vendor',
       vendorApproved: true,
@@ -207,14 +207,18 @@ module.exports = async function seedGuppiesAuto() {
       address: 'Kochi, Kerala, India',
       bio: '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish',
       vendorDetails: {
+        businessName: 'CK Guppies',
+        contactEmail: 'contact.ckguppyfarm@gmail.com',
+        contactNumber: '8667377338',
         upiDetails: {
           upiId: '8667377338@paytm',
-          accountHolderName: 'CK Guppies & Bettas',
+          accountHolderName: 'CK Guppies',
         },
         selectedCategories: ['Guppies', 'Fish', 'Bettas'],
       },
     });
   } else {
+    vendor.name = 'CK Guppies';
     vendor.email = 'contact.ckguppyfarm@gmail.com';
     vendor.phone = '8667377338';
     vendor.role = 'vendor';
@@ -222,7 +226,9 @@ module.exports = async function seedGuppiesAuto() {
     vendor.bio = '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish';
     vendor.avatar = '/ck-guppies-logo.jpg';
     if (vendor.vendorDetails && vendor.vendorDetails.upiDetails) {
+      vendor.vendorDetails.businessName = 'CK Guppies';
       vendor.vendorDetails.upiDetails.upiId = '8667377338@paytm';
+      vendor.vendorDetails.upiDetails.accountHolderName = 'CK Guppies';
     }
     await vendor.save();
   }
