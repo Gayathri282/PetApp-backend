@@ -18,16 +18,25 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        let user = await User.findOne({ googleId: profile.id });
+        const email = profile.emails?.[0]?.value || '';
+        let user = await User.findOne({
+          $or: [
+            { googleId: profile.id },
+            ...(email ? [{ email }] : []),
+          ],
+        });
 
         if (!user) {
           user = await User.create({
             googleId: profile.id,
-            email: profile.emails?.[0]?.value || '',
+            email: email,
             name: profile.displayName,
             avatar: profile.photos?.[0]?.value || '',
           });
           console.log(`🆕 New user created: ${user.name}`);
+        } else if (!user.googleId) {
+          user.googleId = profile.id;
+          await user.save();
         }
 
         return done(null, user);
