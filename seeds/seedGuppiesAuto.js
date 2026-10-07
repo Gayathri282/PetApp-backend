@@ -186,6 +186,8 @@ const GUPPY_VARIETIES = [
   { no: 111, name: 'Zinga Blue Black Tail', cat: 'blue' },
 ];
 
+const { DEFAULT_CK_CUSTOM_CATEGORIES } = require('../data/ckGuppyCategories');
+
 module.exports = async function seedGuppiesAuto() {
   let vendor = await User.findOne({
     $or: [{ email: 'contact.ckguppyfarm@gmail.com' }, { name: 'CK Guppies' }, { name: 'CK Guppies & Bettas' }],
@@ -215,6 +217,7 @@ module.exports = async function seedGuppiesAuto() {
           accountHolderName: 'CK Guppies',
         },
         selectedCategories: ['Guppies', 'Fish', 'Bettas'],
+        customCategories: DEFAULT_CK_CUSTOM_CATEGORIES,
       },
     });
   } else {
@@ -225,10 +228,13 @@ module.exports = async function seedGuppiesAuto() {
     vendor.vendorApproved = true;
     vendor.bio = '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish';
     vendor.avatar = '/ck-guppies-logo.jpg';
-    if (vendor.vendorDetails && vendor.vendorDetails.upiDetails) {
-      vendor.vendorDetails.businessName = 'CK Guppies';
-      vendor.vendorDetails.upiDetails.upiId = '8667377338@paytm';
-      vendor.vendorDetails.upiDetails.accountHolderName = 'CK Guppies';
+    if (!vendor.vendorDetails) vendor.vendorDetails = {};
+    vendor.vendorDetails.businessName = 'CK Guppies';
+    if (!vendor.vendorDetails.upiDetails) vendor.vendorDetails.upiDetails = {};
+    vendor.vendorDetails.upiDetails.upiId = '8667377338@paytm';
+    vendor.vendorDetails.upiDetails.accountHolderName = 'CK Guppies';
+    if (!vendor.vendorDetails.customCategories || vendor.vendorDetails.customCategories.length === 0) {
+      vendor.vendorDetails.customCategories = DEFAULT_CK_CUSTOM_CATEGORIES;
     }
     await vendor.save();
   }

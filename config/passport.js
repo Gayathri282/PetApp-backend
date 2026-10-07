@@ -2,6 +2,8 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User');
 
+const { DEFAULT_CK_CUSTOM_CATEGORIES } = require('../data/ckGuppyCategories');
+
 passport.use(
   new GoogleStrategy(
     {
@@ -41,7 +43,7 @@ passport.use(
         }
 
         // CK Guppies account is always an approved vendor (new or existing)
-        if (email.toLowerCase() === 'contact.ckguppyfarm@gmail.com' && (user.role !== 'vendor' || !user.vendorApproved)) {
+        if (email.toLowerCase() === 'contact.ckguppyfarm@gmail.com') {
           user.role = 'vendor';
           user.vendorApproved = true;
           user.name = 'CK Guppies';
@@ -49,6 +51,7 @@ passport.use(
           user.phone = '8667377338';
           user.bio = '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish';
           user.vendorDetails = {
+            ...(user.vendorDetails || {}),
             businessName: 'CK Guppies',
             contactEmail: 'contact.ckguppyfarm@gmail.com',
             contactNumber: '8667377338',
@@ -57,6 +60,9 @@ passport.use(
               accountHolderName: 'CK Guppies',
             },
             selectedCategories: ['Guppies', 'Fish', 'Bettas'],
+            customCategories: (user.vendorDetails?.customCategories && user.vendorDetails.customCategories.length > 0)
+              ? user.vendorDetails.customCategories
+              : DEFAULT_CK_CUSTOM_CATEGORIES,
           };
           await user.save();
         }
