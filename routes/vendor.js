@@ -180,4 +180,99 @@ router.post(
   }
 );
 
+// @route GET /api/vendor/custom-categories — Get vendor's custom categories and breeds
+router.get('/custom-categories', auth, vendor, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const categories = user.vendorDetails?.customCategories || [];
+    res.json({ categories });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route PUT /api/vendor/custom-categories — Update vendor's custom categories and breeds
+router.put('/custom-categories', auth, vendor, async (req, res) => {
+  try {
+    const { categories } = req.body;
+    if (!Array.isArray(categories)) {
+      return res.status(400).json({ message: 'Categories must be an array' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.vendorDetails) user.vendorDetails = {};
+
+    // Sanitize categories and breeds
+    user.vendorDetails.customCategories = categories
+      .map((cat) => ({
+        name: (cat.name || '').trim(),
+        breeds: Array.isArray(cat.breeds)
+          ? cat.breeds.map((b) => (typeof b === 'string' ? b.trim() : b?.name || '')).filter(Boolean)
+          : [],
+      }))
+      .filter((cat) => cat.name.length > 0);
+
+    await user.save();
+    res.json({
+      categories: user.vendorDetails.customCategories,
+      message: 'Custom categories and breeds saved successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route DELETE /api/vendor/clear/reels — Bulk remove all reels for this vendor
+router.delete('/clear/reels', auth, vendor, async (req, res) => {
+  try {
+    const result = await Product.deleteMany({
+      vendor: req.user._id,
+      $or: [{ category: 'promotional' }, { 'reels.0': { $exists: true } }],
+    });
+    res.json({
+      deletedCount: result.deletedCount,
+      message: `Successfully removed ${result.deletedCount} reel(s).`,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route DELETE /api/vendor/clear/products — Bulk remove all sale products for this vendor
+router.delete('/clear/products', auth, vendor, async (req, res) => {
+  try {
+    const result = await Product.deleteMany({
+      vendor: req.user._id,
+      category: { $ne: 'promotional' },
+    });
+    res.json({
+      deletedCount: result.deletedCount,
+      message: `Successfully removed ${result.deletedCount} product(s).`,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route DELETE /api/vendor/clear/categories — Bulk remove all custom categories & breeds for this vendor
+router.delete('/clear/categories', auth, vendor, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.vendorDetails) {
+      user.vendorDetails.customCategories = [];
+      await user.save();
+    }
+
+    res.json({ message: 'All custom categories and breeds have been removed.' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
+

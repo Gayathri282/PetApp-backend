@@ -6,6 +6,8 @@ const Product = require('../models/Product');
 const VendorApplication = require('../models/VendorApplication');
 const Enquiry = require('../models/Enquiry');
 const Like = require('../models/Like');
+const AdminSetting = require('../models/AdminSetting');
+
 
 // All admin routes require auth + admin middleware
 router.use(auth, admin);
@@ -513,4 +515,83 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// @route GET /api/admin/vendor-categories — Gather all custom categories & breeds from all vendors
+router.get('/vendor-categories', async (req, res) => {
+  try {
+    const vendors = await User.find({
+      $or: [{ role: 'vendor' }, { vendorApproved: true }],
+    }).select('name avatar email vendorDetails');
+
+    const result = [];
+    vendors.forEach((v) => {
+      const customCats = v.vendorDetails?.customCategories || [];
+      const petCats = v.vendorDetails?.petCategories || [];
+
+      const formattedCats = customCats.map((c) => ({
+        vendorId: v._id,
+        vendorName: v.name,
+        vendorEmail: v.email,
+        categoryName: c.name,
+        breeds: c.breeds || [],
+      }));
+
+      petCats.forEach((pc) => {
+        if (!formattedCats.some((c) => c.categoryName.toLowerCase() === pc.toLowerCase())) {
+          formattedCats.push({
+            vendorId: v._id,
+            vendorName: v.name,
+            vendorEmail: v.email,
+            categoryName: pc,
+            breeds: [],
+          });
+        }
+      });
+
+      result.push({
+        vendorId: v._id,
+        vendorName: v.name,
+        vendorEmail: v.email,
+        vendorAvatar: v.avatar,
+        categories: formattedCats,
+      });
+    });
+
+    res.json({ vendorCategories: result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route GET /api/admin/homepage-showcase — Get homepage showcase selection
+router.get('/homepage-showcase', async (req, res) => {
+  try {
+    const setting = await AdminSetting.findOne({ key: 'homepage_showcase' });
+    res.json({ showcase: setting?.value || { featuredCategories: [], featuredBreeds: [] } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route PUT /api/admin/homepage-showcase — Update homepage showcase selection
+router.put('/homepage-showcase', async (req, res) => {
+  try {
+    const { featuredCategories, featuredBreeds } = req.body;
+    let setting = await AdminSetting.findOne({ key: 'homepage_showcase' });
+    if (!setting) {
+      setting = new AdminSetting({ key: 'homepage_showcase', value: {} });
+    }
+
+    setting.value = {
+      featuredCategories: Array.isArray(featuredCategories) ? featuredCategories : [],
+      featuredBreeds: Array.isArray(featuredBreeds) ? featuredBreeds : [],
+    };
+
+    await setting.save();
+    res.json({ showcase: setting.value, message: 'Homepage showcase updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
+

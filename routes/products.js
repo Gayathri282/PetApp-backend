@@ -4,8 +4,8 @@ const vendor = require('../middleware/vendor');
 const upload = require('../middleware/upload');
 const Product = require('../models/Product');
 const Like = require('../models/Like');
-
 const User = require('../models/User');
+const AdminSetting = require('../models/AdminSetting');
 
 const jwt = require('jsonwebtoken');
 
@@ -41,6 +41,17 @@ router.get('/latest-ts', optionalAuth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// @route GET /api/products/homepage-showcase — public endpoint for homepage showcased categories & breeds
+router.get('/homepage-showcase', async (req, res) => {
+  try {
+    const setting = await AdminSetting.findOne({ key: 'homepage_showcase' });
+    res.json({ showcase: setting?.value || { featuredCategories: [], featuredBreeds: [] } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 // @route GET /api/products/feed
 router.get('/feed', optionalAuth, async (req, res) => {

@@ -50,6 +50,12 @@ const userSchema = new mongoose.Schema(
       contactNumber: { type: String, default: '' },
       address: { type: String, default: '' },
       petCategories: { type: [String], default: [] },
+      customCategories: [
+        {
+          name: { type: String, required: true },
+          breeds: [{ type: String, default: [] }],
+        },
+      ],
       upiDetails: {
         upiId: { type: String, default: '' },
         upiName: { type: String, default: '' },
