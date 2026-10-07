@@ -33,13 +33,13 @@ passport.use(
           user = await User.create({
             googleId: profile.id,
             email: email,
-            name: profile.displayName,
+            name: profile.displayName || 'Pet Lover',
             avatar: profile.photos?.[0]?.value || '',
           });
           console.log(`🆕 New user created: ${user.name}`);
         } else if (!user.googleId) {
           user.googleId = profile.id;
-          await user.save();
+          try { await user.save(); } catch { /* ignore non-critical save error */ }
         }
 
         // CK Guppies account is always an approved vendor (new or existing)
@@ -50,6 +50,15 @@ passport.use(
           user.avatar = user.avatar || '/ck-guppies-logo.jpg';
           user.phone = '8667377338';
           user.bio = '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish';
+
+          const existingCats = user.vendorDetails?.customCategories || [];
+          const sanitizedCats = Array.isArray(existingCats) && existingCats.length > 0
+            ? existingCats.map(cat => ({
+                name: (typeof cat === 'string' ? cat : cat.name || cat.categoryName || 'General').trim(),
+                breeds: Array.isArray(cat.breeds) ? cat.breeds : [],
+              })).filter(c => c.name.length > 0)
+            : DEFAULT_CK_CUSTOM_CATEGORIES;
+
           user.vendorDetails = {
             ...(user.vendorDetails || {}),
             businessName: 'CK Guppies',
@@ -60,15 +69,19 @@ passport.use(
               accountHolderName: 'CK Guppies',
             },
             selectedCategories: ['Guppies', 'Fish', 'Bettas'],
-            customCategories: (user.vendorDetails?.customCategories && user.vendorDetails.customCategories.length > 0)
-              ? user.vendorDetails.customCategories
-              : DEFAULT_CK_CUSTOM_CATEGORIES,
+            customCategories: sanitizedCats,
           };
-          await user.save();
+
+          try {
+            await user.save();
+          } catch (saveErr) {
+            console.error('Error updating CK Guppies vendor details:', saveErr.message);
+          }
         }
 
         return done(null, user);
       } catch (error) {
+        console.error('Passport Google Strategy error:', error);
         return done(error, null);
       }
     }

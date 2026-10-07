@@ -52,7 +52,8 @@ const userSchema = new mongoose.Schema(
       petCategories: { type: [String], default: [] },
       customCategories: [
         {
-          name: { type: String, required: true },
+          name: { type: String, default: '' },
+          categoryName: { type: String, default: '' },
           breeds: [{ type: String, default: [] }],
         },
       ],

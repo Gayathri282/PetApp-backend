@@ -185,7 +185,27 @@ router.get('/custom-categories', auth, vendor, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    const categories = user.vendorDetails?.customCategories || [];
+    let rawCategories = user.vendorDetails?.customCategories || [];
+
+    // Sanitize any legacy elements
+    let categories = Array.isArray(rawCategories)
+      ? rawCategories
+          .map((cat) => ({
+            name: (typeof cat === 'string' ? cat : cat.name || cat.categoryName || '').trim(),
+            breeds: Array.isArray(cat?.breeds) ? cat.breeds : [],
+          }))
+          .filter((c) => c.name.length > 0)
+      : [];
+
+    // Fallback for CK Guppies if empty
+    if (categories.length === 0 && (user.email?.toLowerCase() === 'contact.ckguppyfarm@gmail.com' || user.name?.toLowerCase().includes('gupp'))) {
+      const { DEFAULT_CK_CUSTOM_CATEGORIES } = require('../data/ckGuppyCategories');
+      categories = DEFAULT_CK_CUSTOM_CATEGORIES;
+      if (!user.vendorDetails) user.vendorDetails = {};
+      user.vendorDetails.customCategories = DEFAULT_CK_CUSTOM_CATEGORIES;
+      await user.save().catch((e) => console.error('Auto-save categories error:', e.message));
+    }
+
     res.json({ categories });
   } catch (error) {
     res.status(500).json({ message: error.message });
