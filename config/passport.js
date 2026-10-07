@@ -18,11 +18,12 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const email = profile.emails?.[0]?.value || '';
+        const email = (profile.emails?.[0]?.value || '').trim();
+        const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let user = await User.findOne({
           $or: [
             { googleId: profile.id },
-            ...(email ? [{ email }] : []),
+            ...(email ? [{ email: new RegExp(`^${escaped}$`, 'i') }] : []),
           ],
         });
 
@@ -36,6 +37,27 @@ passport.use(
           console.log(`🆕 New user created: ${user.name}`);
         } else if (!user.googleId) {
           user.googleId = profile.id;
+          await user.save();
+        }
+
+        // CK Guppies account is always an approved vendor (new or existing)
+        if (email.toLowerCase() === 'contact.ckguppyfarm@gmail.com' && (user.role !== 'vendor' || !user.vendorApproved)) {
+          user.role = 'vendor';
+          user.vendorApproved = true;
+          user.name = 'CK Guppies';
+          user.avatar = user.avatar || '/ck-guppies-logo.jpg';
+          user.phone = '8667377338';
+          user.bio = '🏆 India’s Biggest Guppy Farm 🇮🇳 | 🎉 7600+ Happy Customers | 🌿 100+ Premium Guppy Strains | 💯 Educational 🎬 No Harm to Fish';
+          user.vendorDetails = {
+            businessName: 'CK Guppies',
+            contactEmail: 'contact.ckguppyfarm@gmail.com',
+            contactNumber: '8667377338',
+            upiDetails: {
+              upiId: '8667377338@paytm',
+              accountHolderName: 'CK Guppies',
+            },
+            selectedCategories: ['Guppies', 'Fish', 'Bettas'],
+          };
           await user.save();
         }
 
