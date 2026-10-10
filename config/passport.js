@@ -42,6 +42,25 @@ passport.use(
           try { await user.save(); } catch { /* ignore non-critical save error */ }
         }
 
+        // Auto-promote configured admin emails to admin role
+        const ADMIN_EMAILS = [
+          'admin@keralapets.com',
+          'admin2@keralapets.com',
+          'admin@petplace.com',
+          process.env.ADMIN_EMAIL,
+          process.env.ADMIN_EMAIL_2
+        ].filter(Boolean).map(e => e.toLowerCase());
+
+        if (ADMIN_EMAILS.includes(email.toLowerCase()) && user.role !== 'admin') {
+          user.role = 'admin';
+          try {
+            await user.save();
+            console.log(`✅ Granted admin role to: ${email}`);
+          } catch (saveErr) {
+            console.error('Error granting admin role:', saveErr.message);
+          }
+        }
+
         // CK Guppies account is always an approved vendor (new or existing)
         if (email.toLowerCase() === 'contact.ckguppyfarm@gmail.com') {
           user.role = 'vendor';

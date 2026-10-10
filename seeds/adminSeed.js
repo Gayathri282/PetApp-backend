@@ -9,40 +9,46 @@ const seedAdmin = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    const adminGoogleId = process.env.ADMIN_GOOGLE_ID;
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@petplace.com';
-    const adminName = process.env.ADMIN_NAME || 'PetPlace Admin';
+    const adminsToSeed = [
+      {
+        googleId: process.env.ADMIN_GOOGLE_ID || 'admin-primary-id',
+        email: (process.env.ADMIN_EMAIL || 'admin@keralapets.com').toLowerCase(),
+        name: process.env.ADMIN_NAME || 'Primary Admin',
+      },
+      {
+        googleId: process.env.ADMIN_GOOGLE_ID_2 || 'admin-secondary-id',
+        email: (process.env.ADMIN_EMAIL_2 || 'admin2@keralapets.com').toLowerCase(),
+        name: 'Secondary Admin',
+      },
+    ];
 
-    if (!adminGoogleId) {
-      console.log('⚠️  ADMIN_GOOGLE_ID not set in .env — creating placeholder admin.');
-      console.log('   Set ADMIN_GOOGLE_ID to your Google account ID and re-run.');
-    }
-
-    const existing = await User.findOne({
-      $or: [
-        { googleId: adminGoogleId || 'admin-placeholder' },
-        { email: adminEmail },
-      ],
-    });
-
-    if (existing) {
-      if (existing.role !== 'admin') {
-        existing.role = 'admin';
-        await existing.save();
-        console.log(`✅ Updated ${existing.name} to admin role`);
-      } else {
-        console.log(`ℹ️  Admin already exists: ${existing.name} (${existing.email})`);
-      }
-    } else {
-      await User.create({
-        googleId: adminGoogleId || 'admin-placeholder',
-        email: adminEmail,
-        name: adminName,
-        avatar: '',
-        role: 'admin',
-        vendorApproved: false,
+    for (const adminData of adminsToSeed) {
+      const existing = await User.findOne({
+        $or: [
+          { googleId: adminData.googleId },
+          { email: adminData.email },
+        ],
       });
-      console.log(`✅ Admin user created: ${adminName} (${adminEmail})`);
+
+      if (existing) {
+        if (existing.role !== 'admin') {
+          existing.role = 'admin';
+          await existing.save();
+          console.log(`✅ Updated ${existing.name} (${existing.email}) to admin role`);
+        } else {
+          console.log(`ℹ️  Admin already exists: ${existing.name} (${existing.email})`);
+        }
+      } else {
+        await User.create({
+          googleId: adminData.googleId,
+          email: adminData.email,
+          name: adminData.name,
+          avatar: '',
+          role: 'admin',
+          vendorApproved: false,
+        });
+        console.log(`✅ Admin user created: ${adminData.name} (${adminData.email})`);
+      }
     }
 
     await mongoose.disconnect();
