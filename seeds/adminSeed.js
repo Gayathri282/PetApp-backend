@@ -17,8 +17,8 @@ const seedAdmin = async () => {
       },
       {
         googleId: process.env.ADMIN_GOOGLE_ID_2 || 'admin-secondary-id',
-        email: (process.env.ADMIN_EMAIL_2 || 'admin2@keralapets.com').toLowerCase(),
-        name: 'Secondary Admin',
+        email: (process.env.ADMIN_EMAIL_2 || 'contact.vishnuprakash@gmail.com').toLowerCase(),
+        name: 'Secondary Admin (Vishnu Prakash)',
       },
     ];
 

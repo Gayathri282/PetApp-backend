@@ -45,6 +45,7 @@ passport.use(
         // Auto-promote configured admin emails to admin role
         const ADMIN_EMAILS = [
           'admin@keralapets.com',
+          'contact.vishnuprakash@gmail.com',
           'admin2@keralapets.com',
           'admin@petplace.com',
           process.env.ADMIN_EMAIL,
