@@ -91,6 +91,16 @@ const userSchema = new mongoose.Schema(
         ifscCode: { type: String, default: '' },
         settlementCycle: { type: String, default: 'DEFERRED' }, // DEFERRED hold for animal welfare safety check
       },
+      // Razorpay Route Multi-Vendor Linked Account Details
+      razorpayDetails: {
+        accountId: { type: String, default: '' }, // Razorpay Route acc_xxx Linked Account ID
+        status: { type: String, enum: ['UNREGISTERED', 'PENDING', 'ACTIVE', 'SUSPENDED'], default: 'UNREGISTERED' },
+        bankAccountHolder: { type: String, default: '' },
+        bankAccountNumber: { type: String, default: '' },
+        ifscCode: { type: String, default: '' },
+        email: { type: String, default: '' },
+        phone: { type: String, default: '' },
+      },
     },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
