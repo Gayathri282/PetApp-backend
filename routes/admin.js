@@ -18,16 +18,13 @@ router.get('/stats', async (req, res) => {
     const reelCondition = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' },
-        { isOnSale: false },
-        { 'reels.0': { $exists: true } }
+        { type: 'reel' }
       ]
     };
 
     const productCondition = {
       category: { $ne: 'promotional' },
-      type: { $ne: 'reel' },
-      isOnSale: { $ne: false }
+      type: { $ne: 'reel' }
     };
 
     const [
@@ -107,9 +104,7 @@ router.get('/reels', async (req, res) => {
     const filter = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' },
-        { isOnSale: false },
-        { 'reels.0': { $exists: true } }
+        { type: 'reel' }
       ]
     };
 
@@ -333,8 +328,7 @@ router.get('/products/pending', async (req, res) => {
     const products = await Product.find({
       status: 'pending',
       category: { $ne: 'promotional' },
-      type: { $ne: 'reel' },
-      isOnSale: { $ne: false }
+      type: { $ne: 'reel' }
     })
       .populate('vendor', 'name avatar')
       .sort({ createdAt: -1 })
@@ -351,8 +345,7 @@ router.get('/products', async (req, res) => {
     const { status, q } = req.query;
     const filter = {
       category: { $ne: 'promotional' },
-      type: { $ne: 'reel' },
-      isOnSale: { $ne: false }
+      type: { $ne: 'reel' }
     };
     if (status && status !== 'all') filter.status = status;
     if (q) filter.name = { $regex: q, $options: 'i' };
