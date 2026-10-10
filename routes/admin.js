@@ -15,6 +15,21 @@ router.use(auth, admin);
 // @route GET /api/admin/stats
 router.get('/stats', async (req, res) => {
   try {
+    const reelCondition = {
+      $or: [
+        { category: 'promotional' },
+        { type: 'reel' },
+        { isOnSale: false },
+        { 'reels.0': { $exists: true } }
+      ]
+    };
+
+    const productCondition = {
+      category: { $ne: 'promotional' },
+      type: { $ne: 'reel' },
+      isOnSale: { $ne: false }
+    };
+
     const [
       users,
       vendors,
@@ -27,10 +42,10 @@ router.get('/stats', async (req, res) => {
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: 'vendor', vendorApproved: true }),
-      Product.countDocuments(),
-      Product.countDocuments({ 'reels.0': { $exists: true } }),
-      Product.countDocuments({ status: 'pending' }),
-      Product.countDocuments({ 'reels.0': { $exists: true }, status: 'pending' }),
+      Product.countDocuments(productCondition),
+      Product.countDocuments(reelCondition),
+      Product.countDocuments({ ...productCondition, status: 'pending' }),
+      Product.countDocuments({ ...reelCondition, status: 'pending' }),
       VendorApplication.countDocuments({ status: 'pending' }),
       Enquiry.countDocuments({ status: 'pending' }),
     ]);
@@ -89,7 +104,14 @@ router.post('/clean-dummy-data', async (req, res) => {
 router.get('/reels', async (req, res) => {
   try {
     const { status, q } = req.query;
-    const filter = { 'reels.0': { $exists: true } };
+    const filter = {
+      $or: [
+        { category: 'promotional' },
+        { type: 'reel' },
+        { isOnSale: false },
+        { 'reels.0': { $exists: true } }
+      ]
+    };
 
     if (status && status !== 'all') {
       filter.status = status;
@@ -308,7 +330,12 @@ router.put('/enquiries/:id', async (req, res) => {
 // @route GET /api/admin/products/pending
 router.get('/products/pending', async (req, res) => {
   try {
-    const products = await Product.find({ status: 'pending' })
+    const products = await Product.find({
+      status: 'pending',
+      category: { $ne: 'promotional' },
+      type: { $ne: 'reel' },
+      isOnSale: { $ne: false }
+    })
       .populate('vendor', 'name avatar')
       .sort({ createdAt: -1 })
       .lean();
@@ -322,7 +349,11 @@ router.get('/products/pending', async (req, res) => {
 router.get('/products', async (req, res) => {
   try {
     const { status, q } = req.query;
-    const filter = {};
+    const filter = {
+      category: { $ne: 'promotional' },
+      type: { $ne: 'reel' },
+      isOnSale: { $ne: false }
+    };
     if (status && status !== 'all') filter.status = status;
     if (q) filter.name = { $regex: q, $options: 'i' };
 
