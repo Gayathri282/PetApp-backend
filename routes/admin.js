@@ -586,20 +586,32 @@ router.get('/vendor-categories', async (req, res) => {
   }
 });
 
+const DEFAULT_BREED_CIRCLES = [
+  { id: 'guppy', name: 'Guppy', tag: 'guppy', count: 'Premium Guppy Strains & Varieties', color: '#E08A3C', image: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Guppy_02.JPG' },
+  { id: 'hmpk', name: 'HMPK', tag: 'hmpk', count: 'Half Moon Plakat Bettas', color: '#2F7FD1', image: 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=400&auto=format&fit=crop' }
+];
+
 // @route GET /api/admin/homepage-showcase — Get homepage showcase selection
 router.get('/homepage-showcase', async (req, res) => {
   try {
     const setting = await AdminSetting.findOne({ key: 'homepage_showcase' });
-    res.json({ showcase: setting?.value || { featuredCategories: [], featuredBreeds: [] } });
+    const val = setting?.value || {};
+    res.json({
+      showcase: {
+        featuredCategories: Array.isArray(val.featuredCategories) ? val.featuredCategories : [],
+        featuredBreeds: Array.isArray(val.featuredBreeds) ? val.featuredBreeds : [],
+        breedCircles: Array.isArray(val.breedCircles) && val.breedCircles.length > 0 ? val.breedCircles : DEFAULT_BREED_CIRCLES,
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// @route PUT /api/admin/homepage-showcase — Update homepage showcase selection
+// @route PUT /api/admin/homepage-showcase — Update homepage showcase selection & breed circles
 router.put('/homepage-showcase', async (req, res) => {
   try {
-    const { featuredCategories, featuredBreeds } = req.body;
+    const { featuredCategories, featuredBreeds, breedCircles } = req.body;
     let setting = await AdminSetting.findOne({ key: 'homepage_showcase' });
     if (!setting) {
       setting = new AdminSetting({ key: 'homepage_showcase', value: {} });
@@ -608,6 +620,7 @@ router.put('/homepage-showcase', async (req, res) => {
     setting.value = {
       featuredCategories: Array.isArray(featuredCategories) ? featuredCategories : [],
       featuredBreeds: Array.isArray(featuredBreeds) ? featuredBreeds : [],
+      breedCircles: Array.isArray(breedCircles) ? breedCircles : [],
     };
 
     await setting.save();
