@@ -64,6 +64,29 @@ router.get('/homepage-showcase', async (req, res) => {
   }
 });
 
+// @route GET /api/products/approved-reels — public endpoint for reels approved by admin
+router.get('/approved-reels', async (req, res) => {
+  try {
+    const reels = await Product.find({
+      $or: [{ category: 'promotional' }, { type: 'reel' }],
+      status: 'approved',
+    })
+      .populate('vendor', 'name avatar vendorDetails.upiDetails')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const formattedReels = reels.map((p) => ({
+      ...p,
+      hasMultipleReels: Array.isArray(p.reels) && p.reels.length > 1,
+      primaryReel: p.reels?.[0] || null,
+    }));
+
+    res.json({ reels: formattedReels });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // @route GET /api/products/feed
 router.get('/feed', optionalAuth, async (req, res) => {
