@@ -18,8 +18,7 @@ router.get('/stats', async (req, res) => {
     const reelCondition = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' },
-        { 'reels.0': { $exists: true } }
+        { type: 'reel' }
       ]
     };
 
@@ -105,8 +104,7 @@ router.get('/reels', async (req, res) => {
     const filter = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' },
-        { 'reels.0': { $exists: true } }
+        { type: 'reel' }
       ]
     };
 
