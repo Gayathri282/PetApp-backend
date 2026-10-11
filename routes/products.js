@@ -195,9 +195,23 @@ router.get('/search', optionalAuth, async (req, res) => {
     const { q, tags } = req.query;
     const filter = { 'reels.0': { $exists: true }, status: 'approved' };
 
-    // Handle Text Search
+    // Handle Text Search & Category/Tag Queries
     if (q) {
-      filter.$text = { $search: q };
+      const cleanQ = q.replace(/_/g, ' ').trim();
+      const safeQ = cleanQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const words = safeQ.split(/\s+/).filter(Boolean);
+      const phraseRegex = new RegExp(safeQ, 'i');
+      const wordRegexes = words.map((w) => new RegExp(w, 'i'));
+
+      filter.$or = [
+        { name: phraseRegex },
+        { category: phraseRegex },
+        { tags: { $in: [phraseRegex, ...wordRegexes] } },
+        { description: phraseRegex },
+        { 'animalCompliance.breed': phraseRegex },
+        ...wordRegexes.map((w) => ({ name: w })),
+        ...wordRegexes.map((w) => ({ category: w })),
+      ];
     }
 
     // Handle Tags & Special Filters
@@ -241,7 +255,7 @@ router.get('/search', optionalAuth, async (req, res) => {
 
     const products = await Product.find(filter)
       .populate('vendor', 'name avatar vendorDetails.upiDetails')
-      .sort(q ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
+      .sort({ createdAt: -1 })
       .limit(50)
       .lean();
 

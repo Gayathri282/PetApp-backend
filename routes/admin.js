@@ -18,7 +18,8 @@ router.get('/stats', async (req, res) => {
     const reelCondition = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' }
+        { type: 'reel' },
+        { 'reels.0': { $exists: true } }
       ]
     };
 
@@ -104,12 +105,15 @@ router.get('/reels', async (req, res) => {
     const filter = {
       $or: [
         { category: 'promotional' },
-        { type: 'reel' }
+        { type: 'reel' },
+        { 'reels.0': { $exists: true } }
       ]
     };
 
     if (status && status !== 'all') {
       filter.status = status;
+    } else {
+      filter.status = { $ne: 'deleted' };
     }
     if (q) {
       filter.name = { $regex: q, $options: 'i' };
@@ -188,9 +192,6 @@ router.delete('/reels/:id', async (req, res) => {
       return res.status(404).json({ message: 'Reel not found' });
     }
 
-    product.status = 'deleted';
-    await product.save();
-
     const Notification = require('../models/Notification');
     const Message = require('../models/Message');
 
@@ -208,6 +209,10 @@ router.delete('/reels/:id', async (req, res) => {
         content: `🚫 *Admin Notice — Reel Deleted*\n\nYour reel **"${product.name}"** has been removed by admin.\n\n**Reason:** ${deleteReason}`,
       });
     }
+
+    await Product.findByIdAndDelete(req.params.id);
+    await Like.deleteMany({ product: req.params.id });
+    await Enquiry.deleteMany({ product: req.params.id });
 
     res.json({ message: 'Reel deleted by admin' });
   } catch (error) {
@@ -347,7 +352,11 @@ router.get('/products', async (req, res) => {
       category: { $ne: 'promotional' },
       type: { $ne: 'reel' }
     };
-    if (status && status !== 'all') filter.status = status;
+    if (status && status !== 'all') {
+      filter.status = status;
+    } else {
+      filter.status = { $ne: 'deleted' };
+    }
     if (q) filter.name = { $regex: q, $options: 'i' };
 
     const products = await Product.find(filter)
@@ -423,9 +432,6 @@ router.delete('/products/:id', async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    product.status = 'deleted';
-    await product.save();
-
     const Notification = require('../models/Notification');
     const Message = require('../models/Message');
 
@@ -443,6 +449,10 @@ router.delete('/products/:id', async (req, res) => {
         content: `🚫 *Admin Notice — Product Deleted*\n\nYour product **"${product.name}"** has been deleted by admin.\n\n**Reason:** ${deleteReason}`,
       });
     }
+
+    await Product.findByIdAndDelete(req.params.id);
+    await Like.deleteMany({ product: req.params.id });
+    await Enquiry.deleteMany({ product: req.params.id });
 
     res.json({ message: 'Product deleted by admin' });
   } catch (error) {
