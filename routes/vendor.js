@@ -157,6 +157,7 @@ router.post(
         vendor: req.user._id,
         name: name || 'Promotional Reel',
         description: description || '',
+        type: 'reel',
         category: 'promotional',
         tags: tags ? JSON.parse(tags) : [],
         price: 0,
