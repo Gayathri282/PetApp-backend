@@ -68,7 +68,12 @@ router.get('/homepage-showcase', async (req, res) => {
 router.get('/approved-reels', async (req, res) => {
   try {
     const reels = await Product.find({
-      $or: [{ category: 'promotional' }, { type: 'reel' }],
+      $or: [
+        { category: 'promotional' },
+        { category: 'reel' },
+        { category: 'reels' },
+        { type: 'reel' },
+      ],
       status: 'approved',
     })
       .populate('vendor', 'name avatar vendorDetails.upiDetails')
@@ -78,6 +83,7 @@ router.get('/approved-reels', async (req, res) => {
 
     const formattedReels = reels.map((p) => ({
       ...p,
+      type: 'reel',
       hasMultipleReels: Array.isArray(p.reels) && p.reels.length > 1,
       primaryReel: p.reels?.[0] || null,
     }));
